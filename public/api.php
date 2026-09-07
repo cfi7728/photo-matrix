@@ -149,6 +149,10 @@ try {
         // bevor der Run gestartet wird.
         $client->workbench(app_config('project_photoset', 23), $draft);
         $photosetUploadPlan = public_upload_plan($uploadFields);
+        // Die lokale Generierung wird vor dem externen Start eindeutig markiert.
+        // Damit kann selbst eine von BKI wiederverwendete run_id nicht mit einer
+        // älteren FotoSetCard derselben Session verwechselt werden.
+        $attempt = begin_photoset_attempt($flow, $draft);
         $run = $client->startRun(
             app_config('project_photoset', 23),
             app_config('provider_photoset', 'chatgpt'),
@@ -158,11 +162,12 @@ try {
         );
         $runId = find_run_id($run);
         if (!$runId) throw new Exception('BKI hat keine run_id für Projekt 23 zurückgegeben.');
+        $attempt = bind_photoset_attempt_run($flow, $attempt['id'], $runId);
         $flow->set('photoset_run', $runId);
         $flow->set('photoset_images', array());
-        $flow->set('active_photoset_attempt_id', null);
+        $flow->set('active_photoset_attempt_id', $attempt['id']);
         $flow->set('photoset_approved', false);
-        json_response(array('ok' => true, 'run_id' => $runId, 'upload_plan' => $photosetUploadPlan, 'state' => public_state($flow)), 202);
+        json_response(array('ok' => true, 'run_id' => $runId, 'attempt_id' => $attempt['id'], 'upload_plan' => $photosetUploadPlan, 'state' => public_state($flow)), 202);
     }
 
     if ($action === 'poll_photoset') {
@@ -187,7 +192,7 @@ try {
                 ), 200);
             }
             $flow->set('photoset_images', $images);
-            $attempt = store_photoset_attempt($client, $flow, $runId, $images);
+            $attempt = store_photoset_attempt($client, $flow, $runId, $images, $flow->get('active_photoset_attempt_id', null));
             $flow->set('active_photoset_attempt_id', $attempt['id']);
             if (count(valid_saved_files(isset($attempt['saved_files']) ? $attempt['saved_files'] : array())) < 1 || empty($attempt['library_id'])) {
                 $message = 'Das FotoSet wurde erzeugt, konnte aber nicht im lokalen Storage gespeichert werden. Bitte die Speicherung wiederholen.';
@@ -195,9 +200,9 @@ try {
                     $lastError = $attempt['storage_errors'][count($attempt['storage_errors']) - 1];
                     if (isset($lastError['message']) && $lastError['message'] !== '') $message .= ' Ursache: ' . $lastError['message'];
                 }
-                json_response(array('ok' => false, 'status' => 'succeeded_storage_failed', 'message' => $message, 'attempt_id' => $attempt['id'], 'state' => public_state($flow)), 200);
+                json_response(array('ok' => false, 'status' => 'succeeded_storage_failed', 'message' => $message, 'attempt_id' => $attempt['id'], 'card_created' => !empty($attempt['_card_created']), 'card_reused' => !empty($attempt['_card_reused']), 'state' => public_state($flow)), 200);
             }
-            json_response(array('ok' => true, 'status' => 'succeeded', 'attempt_id' => $attempt['id'], 'images' => public_photoset_attempt_images($attempt), 'state' => public_state($flow)), 200);
+            json_response(array('ok' => true, 'status' => 'succeeded', 'attempt_id' => $attempt['id'], 'card_created' => !empty($attempt['_card_created']), 'card_reused' => !empty($attempt['_card_reused']), 'images' => public_photoset_attempt_images($attempt), 'state' => public_state($flow)), 200);
         }
         if ($status === 'failed' || $status === 'error' || $status === 'cancelled' || $status === 'canceled') {
             json_response(array('ok' => false, 'status' => $status, 'message' => run_error_message($run)), 200);
@@ -226,6 +231,8 @@ try {
         $attempt = find_photoset_attempt($flow, $attemptId);
         if (!$attempt) throw new Exception('FotoSetCard wurde nicht gefunden.');
         $flow->set('active_photoset_attempt_id', $attemptId);
+        $flow->set('photoset_generation_id', isset($attempt['generation_id']) ? $attempt['generation_id'] : $attemptId);
+        $flow->set('photoset_generation_draft', isset($attempt['draft_key']) ? $attempt['draft_key'] : null);
         $flow->set('photoset_run', isset($attempt['run_id']) ? $attempt['run_id'] : null);
         $flow->set('photoset_images', isset($attempt['refs']) && is_array($attempt['refs']) ? $attempt['refs'] : array());
         // Das Auswählen ist zunächst nur eine Vorschau. Erst "FotoSet verwenden"
@@ -949,18 +956,66 @@ function image_url_for_ref($scope, $index, $ref, $extraVersionSeed) {
     return 'api.php?action=image&scope=' . rawurlencode($scope) . '&index=' . intval($index) . '&v=' . rawurlencode(ref_cache_token($ref, $extraVersionSeed));
 }
 
-function store_photoset_attempt($client, $flow, $runId, $images) {
+function begin_photoset_attempt($flow, $draftKey) {
+    $id = uuid_v4_compat();
+    $attempt = array(
+        'id' => $id,
+        'generation_id' => $id,
+        'run_id' => null,
+        'draft_key' => $draftKey,
+        'created_at' => date('c'),
+        'refs' => array(),
+        'saved_files' => array(),
+        'library_id' => null,
+        'storage_errors' => array()
+    );
+    $attempts = $flow->get('photoset_attempts', array());
+    $attempts[] = $attempt;
+    $flow->set('photoset_attempts', array_values($attempts));
+    $flow->set('photoset_generation_id', $id);
+    $flow->set('photoset_generation_draft', $draftKey);
+    $flow->set('active_photoset_attempt_id', $id);
+    return $attempt;
+}
+
+function bind_photoset_attempt_run($flow, $attemptId, $runId) {
+    $attempts = $flow->get('photoset_attempts', array());
+    foreach ($attempts as $index => $attempt) {
+        if (isset($attempt['id']) && (string)$attempt['id'] === (string)$attemptId) {
+            $attempts[$index]['run_id'] = (string)$runId;
+            $flow->set('photoset_attempts', array_values($attempts));
+            return $attempts[$index];
+        }
+    }
+    throw new Exception('Der lokale FotoSet-Versuch wurde vor dem BKI-Start nicht gefunden.');
+}
+
+function store_photoset_attempt($client, $flow, $runId, $images, $attemptId = null) {
     $attempts = $flow->get('photoset_attempts', array());
     $existingIndex = null;
     foreach ($attempts as $index => $existingAttempt) {
-        if (isset($existingAttempt['run_id']) && (string)$existingAttempt['run_id'] === (string)$runId) {
-            if (count(valid_saved_files(isset($existingAttempt['saved_files']) ? $existingAttempt['saved_files'] : array())) > 0 && !empty($existingAttempt['library_id'])) return $existingAttempt;
+        if ($attemptId !== null && isset($existingAttempt['id']) && (string)$existingAttempt['id'] === (string)$attemptId) {
             $existingIndex = $index;
             break;
         }
     }
 
-    $id = $existingIndex === null ? uuid_v4_compat() : $attempts[$existingIndex]['id'];
+    if ($existingIndex === null) {
+        throw new Exception('Der aktive lokale FotoSet-Versuch fehlt; die externe run_id wird nicht ohne Generierungskontext wiederverwendet.');
+    }
+    $current = $attempts[$existingIndex];
+    $generationId = isset($current['generation_id']) ? $current['generation_id'] : $current['id'];
+    $draftKey = $flow->get('photoset_generation_draft', isset($current['draft_key']) ? $current['draft_key'] : null);
+    if ((string)$current['run_id'] !== (string)$runId || (string)$current['draft_key'] !== (string)$draftKey || (string)$current['id'] !== (string)$generationId) {
+        throw new Exception('Konflikt beim FotoSet-Versuch: run_id, draft_key und lokale Generierung passen nicht zusammen.');
+    }
+    if (!empty($current['snapshot_stored_at']) && count(valid_saved_files(isset($current['saved_files']) ? $current['saved_files'] : array())) > 0 && !empty($current['library_id'])) {
+        $current['_card_created'] = false;
+        $current['_card_reused'] = true;
+        return $current;
+    }
+
+    $id = $current['id'];
     $saved = array();
     $storageErrors = $existingIndex === null || empty($attempts[$existingIndex]['storage_errors']) ? array() : $attempts[$existingIndex]['storage_errors'];
     try {
@@ -970,14 +1025,16 @@ function store_photoset_attempt($client, $flow, $runId, $images) {
         error_log('FotoSet-Storage ' . json_encode(array('phase' => 'materialize', 'run_id' => (string)$runId, 'attempt_id' => $id, 'error' => $e->getMessage())));
         $saved = array();
     }
-    $createdAt = date('c');
+    $createdAt = isset($current['created_at']) ? $current['created_at'] : date('c');
     $libraryId = null;
     if (count($saved) > 0) {
         try {
             $libraryId = archive_photoset_files($saved, array(
                 'run_id' => $runId,
                 'created_at' => $createdAt,
-                'source_attempt_id' => $id
+                'source_attempt_id' => $id,
+                'draft_key' => $draftKey,
+                'generation_id' => $generationId
             ));
         } catch (Exception $e) {
             $storageErrors[] = photoset_storage_error('archive', $e);
@@ -990,17 +1047,20 @@ function store_photoset_attempt($client, $flow, $runId, $images) {
     }
     $attempt = array(
         'id' => $id,
+        'generation_id' => $generationId,
         'run_id' => $runId,
-        'draft_key' => $flow->get('photoset_draft', null),
+        'draft_key' => $draftKey,
         'created_at' => $createdAt,
         'refs' => $images,
         'saved_files' => $saved,
         'library_id' => $libraryId,
-        'storage_errors' => $storageErrors
+        'storage_errors' => $storageErrors,
+        'snapshot_stored_at' => (count($saved) > 0 && $libraryId) ? date('c') : null
     );
-    if ($existingIndex === null) $attempts[] = $attempt;
-    else $attempts[$existingIndex] = $attempt;
+    $attempts[$existingIndex] = $attempt;
     $flow->set('photoset_attempts', array_values($attempts));
+    $attempt['_card_created'] = true;
+    $attempt['_card_reused'] = false;
     return $attempt;
 }
 
@@ -1060,7 +1120,9 @@ function archive_photoset_files($files, $meta) {
     $files = valid_saved_files($files);
     if (count($files) < 1) return null;
     $runId = isset($meta['run_id']) && $meta['run_id'] ? (string)$meta['run_id'] : '';
-    if ($runId !== '') $libraryId = 'ps-' . substr(sha1('run|' . $runId), 0, 24);
+    $sourceAttemptId = isset($meta['source_attempt_id']) ? (string)$meta['source_attempt_id'] : '';
+    if ($sourceAttemptId !== '') $libraryId = 'ps-' . substr(sha1('attempt|' . $sourceAttemptId), 0, 24);
+    else if ($runId !== '') $libraryId = 'ps-' . substr(sha1('run|' . $runId), 0, 24);
     else $libraryId = 'ps-' . substr(sha1(implode('|', $files) . '|' . microtime(true)), 0, 24);
     $dir = photoset_library_base() . '/' . $libraryId;
     if (!is_dir($dir) && !mkdir($dir, 0775, true)) throw new Exception('FotoSet konnte nicht in der Bibliothek gespeichert werden.');
@@ -1080,6 +1142,8 @@ function archive_photoset_files($files, $meta) {
         'run_id' => $runId !== '' ? $runId : null,
         'created_at' => isset($meta['created_at']) && $meta['created_at'] ? $meta['created_at'] : date('c'),
         'source_attempt_id' => isset($meta['source_attempt_id']) ? $meta['source_attempt_id'] : null,
+        'draft_key' => isset($meta['draft_key']) ? $meta['draft_key'] : null,
+        'generation_id' => isset($meta['generation_id']) ? $meta['generation_id'] : null,
         'image_count' => count($copied)
     );
     $metaPath = $dir . '/meta.json';

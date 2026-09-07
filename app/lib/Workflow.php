@@ -15,6 +15,8 @@ class Workflow {
             'photoset_attempts' => array(),
             'active_photoset_attempt_id' => null,
             'approved_photoset_attempt_id' => null,
+            'photoset_generation_id' => null,
+            'photoset_generation_draft' => null,
             'scene_batches' => array()
         );
         foreach ($defaults as $key => $value) {
@@ -48,6 +50,8 @@ class Workflow {
             'photoset_attempts' => array(),
             'active_photoset_attempt_id' => null,
             'approved_photoset_attempt_id' => null,
+            'photoset_generation_id' => null,
+            'photoset_generation_draft' => null,
             'scene_batches' => array(),
             'profile' => array(),
             'location' => array(),
@@ -65,6 +69,8 @@ class Workflow {
         $_SESSION[$this->key]['photoset_approved'] = false;
         $_SESSION[$this->key]['photoset_files'] = array();
         $_SESSION[$this->key]['active_photoset_attempt_id'] = null;
+        $_SESSION[$this->key]['photoset_generation_id'] = null;
+        $_SESSION[$this->key]['photoset_generation_draft'] = null;
         // Bereits erzeugte FotoSetCards bleiben erhalten. Nur der aktuelle
         // Entwurf/Lauf wird verworfen, damit zwischen Versuchen gewechselt
         // werden kann.
