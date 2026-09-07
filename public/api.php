@@ -189,6 +189,14 @@ try {
             $flow->set('photoset_images', $images);
             $attempt = store_photoset_attempt($client, $flow, $runId, $images);
             $flow->set('active_photoset_attempt_id', $attempt['id']);
+            if (count(valid_saved_files(isset($attempt['saved_files']) ? $attempt['saved_files'] : array())) < 1 || empty($attempt['library_id'])) {
+                $message = 'Das FotoSet wurde erzeugt, konnte aber nicht im lokalen Storage gespeichert werden. Bitte die Speicherung wiederholen.';
+                if (!empty($attempt['storage_errors'])) {
+                    $lastError = $attempt['storage_errors'][count($attempt['storage_errors']) - 1];
+                    if (isset($lastError['message']) && $lastError['message'] !== '') $message .= ' Ursache: ' . $lastError['message'];
+                }
+                json_response(array('ok' => false, 'status' => 'succeeded_storage_failed', 'message' => $message, 'attempt_id' => $attempt['id'], 'state' => public_state($flow)), 200);
+            }
             json_response(array('ok' => true, 'status' => 'succeeded', 'attempt_id' => $attempt['id'], 'images' => public_photoset_attempt_images($attempt), 'state' => public_state($flow)), 200);
         }
         if ($status === 'failed' || $status === 'error' || $status === 'cancelled' || $status === 'canceled') {
@@ -880,7 +888,9 @@ function materialize_ref_to_file($client, $runId, $ref, $pathBase) {
     if ($bytes === null || $bytes === false || strlen($bytes) < 100) return null;
     $ext = strpos(strtolower($type), 'webp') !== false ? 'webp' : (strpos(strtolower($type), 'jpeg') !== false || strpos(strtolower($type), 'jpg') !== false ? 'jpg' : 'png');
     $path = $pathBase . '.' . $ext;
-    file_put_contents($path, $bytes);
+    if (file_put_contents($path, $bytes) === false) {
+        throw new Exception('Bilddatei konnte nicht geschrieben werden: ' . $path);
+    }
     return $path;
 }
 
@@ -941,25 +951,43 @@ function image_url_for_ref($scope, $index, $ref, $extraVersionSeed) {
 
 function store_photoset_attempt($client, $flow, $runId, $images) {
     $attempts = $flow->get('photoset_attempts', array());
-    foreach ($attempts as $attempt) {
-        if (isset($attempt['run_id']) && (string)$attempt['run_id'] === (string)$runId) return $attempt;
+    $existingIndex = null;
+    foreach ($attempts as $index => $existingAttempt) {
+        if (isset($existingAttempt['run_id']) && (string)$existingAttempt['run_id'] === (string)$runId) {
+            if (count(valid_saved_files(isset($existingAttempt['saved_files']) ? $existingAttempt['saved_files'] : array())) > 0 && !empty($existingAttempt['library_id'])) return $existingAttempt;
+            $existingIndex = $index;
+            break;
+        }
     }
 
-    $id = uuid_v4_compat();
+    $id = $existingIndex === null ? uuid_v4_compat() : $attempts[$existingIndex]['id'];
     $saved = array();
+    $storageErrors = $existingIndex === null || empty($attempts[$existingIndex]['storage_errors']) ? array() : $attempts[$existingIndex]['storage_errors'];
     try {
         $saved = materialize_photoset_attempt($client, $runId, $images, $id);
     } catch (Exception $e) {
-        // Die Card bleibt trotzdem über den BKI-Run erreichbar. Beim Freigeben
-        // wird die lokale Materialisierung erneut versucht.
+        $storageErrors[] = photoset_storage_error('materialize', $e);
+        error_log('FotoSet-Storage ' . json_encode(array('phase' => 'materialize', 'run_id' => (string)$runId, 'attempt_id' => $id, 'error' => $e->getMessage())));
         $saved = array();
     }
     $createdAt = date('c');
-    $libraryId = archive_photoset_files($saved, array(
-        'run_id' => $runId,
-        'created_at' => $createdAt,
-        'source_attempt_id' => $id
-    ));
+    $libraryId = null;
+    if (count($saved) > 0) {
+        try {
+            $libraryId = archive_photoset_files($saved, array(
+                'run_id' => $runId,
+                'created_at' => $createdAt,
+                'source_attempt_id' => $id
+            ));
+        } catch (Exception $e) {
+            $storageErrors[] = photoset_storage_error('archive', $e);
+            error_log('FotoSet-Storage ' . json_encode(array('phase' => 'archive', 'run_id' => (string)$runId, 'attempt_id' => $id, 'error' => $e->getMessage())));
+        }
+    } else if (!count($storageErrors)) {
+        $e = new Exception('Keines der Ergebnisbilder konnte materialisiert werden.');
+        $storageErrors[] = photoset_storage_error('materialize', $e);
+        error_log('FotoSet-Storage ' . json_encode(array('phase' => 'materialize', 'run_id' => (string)$runId, 'attempt_id' => $id, 'error' => $e->getMessage())));
+    }
     $attempt = array(
         'id' => $id,
         'run_id' => $runId,
@@ -967,11 +995,17 @@ function store_photoset_attempt($client, $flow, $runId, $images) {
         'created_at' => $createdAt,
         'refs' => $images,
         'saved_files' => $saved,
-        'library_id' => $libraryId
+        'library_id' => $libraryId,
+        'storage_errors' => $storageErrors
     );
-    $attempts[] = $attempt;
+    if ($existingIndex === null) $attempts[] = $attempt;
+    else $attempts[$existingIndex] = $attempt;
     $flow->set('photoset_attempts', array_values($attempts));
     return $attempt;
+}
+
+function photoset_storage_error($phase, $exception) {
+    return array('phase' => $phase, 'message' => $exception->getMessage(), 'occurred_at' => date('c'));
 }
 
 function find_photoset_attempt($flow, $attemptId) {
@@ -1036,7 +1070,7 @@ function archive_photoset_files($files, $meta) {
         if (!in_array($ext, array('jpg','jpeg','png','webp'), true)) $ext = 'jpg';
         $target = $dir . '/photoset-' . ($i + 1) . '.' . $ext;
         if (!is_file($target) || @filesize($target) !== @filesize($source)) {
-            if (!@copy($source, $target)) continue;
+            if (!copy($source, $target)) throw new Exception('FotoSet-Datei konnte nicht archiviert werden: ' . $source . ' -> ' . $target);
         }
         $copied[] = $target;
     }
@@ -1048,7 +1082,10 @@ function archive_photoset_files($files, $meta) {
         'source_attempt_id' => isset($meta['source_attempt_id']) ? $meta['source_attempt_id'] : null,
         'image_count' => count($copied)
     );
-    @file_put_contents($dir . '/meta.json', json_encode($payload));
+    $metaPath = $dir . '/meta.json';
+    if (file_put_contents($metaPath, json_encode($payload)) === false) {
+        throw new Exception('FotoSet-Metadaten konnten nicht geschrieben werden: ' . $metaPath);
+    }
     return $libraryId;
 }
 
