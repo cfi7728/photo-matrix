@@ -78,8 +78,14 @@ class BkiClient {
         return $this->post('/projects/' . intval($projectId) . '/runs', $body, uuid_v4_compat());
     }
 
-    public function getRun($runId) {
-        return $this->get('/runs/' . rawurlencode($runId));
+    public function getRun($runId, $generationKey = null) {
+        $path = '/runs/' . rawurlencode($runId);
+        if ($generationKey !== null && $generationKey !== '') {
+            // BKI kann eine run_id erneut vergeben. Ein eindeutiger Query-Parameter
+            // verhindert dann, dass ein Proxy die Antwort des alten Laufs liefert.
+            $path .= '?cache_key=' . rawurlencode((string)$generationKey);
+        }
+        return $this->get($path);
     }
 
     public function resetDraft($projectId, $draftKey) {
@@ -127,12 +133,20 @@ class BkiClient {
         ), uuid_v4_compat());
     }
 
-    public function downloadRunResource($runId, $fileId) {
-        return $this->requestBinary('/runs/' . rawurlencode($runId) . '/resources/' . rawurlencode($fileId) . '/content');
+    public function downloadRunResource($runId, $fileId, $generationKey = null) {
+        $path = '/runs/' . rawurlencode($runId) . '/resources/' . rawurlencode($fileId) . '/content';
+        if ($generationKey !== null && $generationKey !== '') {
+            $path .= '?cache_key=' . rawurlencode((string)$generationKey);
+        }
+        return $this->requestBinary($path);
     }
 
-    public function downloadFile($fileId) {
-        return $this->requestBinary('/files/' . rawurlencode($fileId) . '/content');
+    public function downloadFile($fileId, $generationKey = null) {
+        $path = '/files/' . rawurlencode($fileId) . '/content';
+        if ($generationKey !== null && $generationKey !== '') {
+            $path .= '?cache_key=' . rawurlencode((string)$generationKey);
+        }
+        return $this->requestBinary($path);
     }
 
     public function proxyTrustedUrl($url) {
@@ -171,7 +185,7 @@ class BkiClient {
         }
         $url = $this->base . $path;
         $ch = curl_init($url);
-        $headers = array('Authorization: Bearer ' . $this->key, 'Accept: application/json');
+        $headers = array('Authorization: Bearer ' . $this->key, 'Accept: application/json', 'Cache-Control: no-cache, no-store', 'Pragma: no-cache');
         if (!$multipart && $body !== null) {
             $headers[] = 'Content-Type: application/json';
         }
@@ -222,7 +236,7 @@ class BkiClient {
         }
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, array('Authorization: Bearer ' . $this->key, 'Accept: */*'));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, array('Authorization: Bearer ' . $this->key, 'Accept: */*', 'Cache-Control: no-cache, no-store', 'Pragma: no-cache'));
         curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
         curl_setopt($ch, CURLOPT_TIMEOUT, 120);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, $this->verifyTls);
