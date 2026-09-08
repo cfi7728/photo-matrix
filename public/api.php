@@ -106,8 +106,9 @@ try {
     }
 
     if ($action === 'remove_upload') {
-        $index = isset($_POST['index']) ? intval($_POST['index']) : -1;
-        $uploads = $flow->get('uploads', array());
+        $uploadId = isset($_POST['upload_id']) ? (string)$_POST['upload_id'] : '';
+        $uploads = ensure_upload_ids($flow->get('uploads', array()));
+        $index = find_upload_index($uploads, $uploadId);
         if (isset($uploads[$index])) {
             if (isset($uploads[$index]['path']) && is_file($uploads[$index]['path'])) @unlink($uploads[$index]['path']);
             array_splice($uploads, $index, 1);
@@ -560,7 +561,10 @@ function handle_upload($flow) {
     $files = normalize_files_array($_FILES['photos']);
     if (count($files) < 1) throw new Exception('Keine Bilder empfangen.');
     $uploads = clean_uploads($flow);
-    $replaceIndex = isset($_POST['replace_index']) && $_POST['replace_index'] !== '' ? intval($_POST['replace_index']) : null;
+    $replaceId = isset($_POST['replace_upload_id']) ? (string)$_POST['replace_upload_id'] : '';
+    $replaceIndex = $replaceId !== '' ? find_upload_index($uploads, $replaceId) : null;
+    if ($replaceId !== '' && $replaceIndex === null) throw new Exception('Zu ersetzendes Bild wurde nicht gefunden. Bitte die Seite neu laden.');
+    if ($replaceIndex !== null && count($files) !== 1) throw new Exception('Beim Tauschen bitte genau ein Bild auswählen.');
     if ($replaceIndex === null && count($uploads) + count($files) > app_config('max_uploads', 4)) throw new Exception('Maximal 4 Bilder erlaubt.');
     $dir = app_config('storage', dirname(__DIR__) . '/storage') . '/uploads/' . session_id();
     if (!is_dir($dir) && !mkdir($dir, 0775, true)) throw new Exception('Upload-Verzeichnis konnte nicht angelegt werden.');
@@ -572,7 +576,7 @@ function handle_upload($flow) {
         $ext = mime_extension($mime);
         $path = $dir . '/' . uuid_v4_compat() . '.' . $ext;
         if (!move_uploaded_file($file['tmp_name'], $path)) throw new Exception('Bild konnte nicht gespeichert werden.');
-        $entry = array('path' => $path, 'name' => basename($file['name']), 'mime' => $mime, 'size' => $file['size']);
+        $entry = array('id' => uuid_v4_compat(), 'path' => $path, 'name' => basename($file['name']), 'mime' => $mime, 'size' => $file['size']);
         if ($replaceIndex !== null) {
             if (!isset($uploads[$replaceIndex])) throw new Exception('Zu ersetzender Bildslot existiert nicht.');
             if (isset($uploads[$replaceIndex]['path']) && is_file($uploads[$replaceIndex]['path'])) @unlink($uploads[$replaceIndex]['path']);
@@ -615,17 +619,47 @@ function mime_extension($mime) {
 }
 
 function clean_uploads($flow) {
-    $uploads = $flow->get('uploads', array());
+    $storedUploads = $flow->get('uploads', array());
+    $uploads = ensure_upload_ids($storedUploads);
     $valid = array();
     foreach ($uploads as $upload) {
         if (!is_array($upload) || !isset($upload['path']) || !is_file($upload['path'])) continue;
         $valid[] = $upload;
     }
-    if (count($valid) !== count($uploads)) {
+    if ($valid !== array_values($storedUploads)) {
         $flow->set('uploads', array_values($valid));
+    }
+    if (count($valid) !== count($uploads)) {
         $flow->restartPhotoset();
     }
     return array_values($valid);
+}
+
+function ensure_upload_ids($uploads) {
+    foreach ($uploads as $index => $upload) {
+        if (!is_array($upload)) continue;
+        if (!isset($upload['id']) || (string)$upload['id'] === '') {
+            $path = isset($upload['path']) ? (string)$upload['path'] : (string)$index;
+            $uploads[$index]['id'] = 'upload-' . substr(sha1($path), 0, 24);
+        }
+    }
+    return $uploads;
+}
+
+function find_upload_index($uploads, $uploadId) {
+    if ($uploadId === '') return null;
+    foreach ($uploads as $index => $upload) {
+        if (isset($upload['id']) && hash_equals_compat((string)$upload['id'], $uploadId)) return $index;
+    }
+    return null;
+}
+
+function hash_equals_compat($known, $given) {
+    if (function_exists('hash_equals')) return hash_equals($known, $given);
+    if (strlen($known) !== strlen($given)) return false;
+    $result = 0;
+    for ($i = 0; $i < strlen($known); $i++) $result |= ord($known[$i]) ^ ord($given[$i]);
+    return $result === 0;
 }
 
 function public_state($flow) {
@@ -633,7 +667,7 @@ function public_state($flow) {
     $s = $flow->all();
     $uploads = array();
     foreach ($s['uploads'] as $i => $u) {
-        $uploads[] = array('index' => $i, 'name' => $u['name'], 'size' => $u['size'], 'url' => 'upload-preview.php?index=' . $i . '&v=' . rawurlencode((string)@filemtime($u['path'])));
+        $uploads[] = array('id' => $u['id'], 'index' => $i, 'name' => $u['name'], 'size' => $u['size'], 'url' => 'upload-preview.php?index=' . $i . '&v=' . rawurlencode((string)@filemtime($u['path'])));
     }
 
     $attempts = public_photoset_attempts($flow);
