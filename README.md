@@ -210,6 +210,11 @@ Erfolgreiche Projekt-23-Läufe werden jetzt als eigenständige **FotoSetCards** 
 - die erkannten Ergebnisreferenzen,
 - sowie – soweit abrufbar – eine lokale Kopie der Ergebnisbilder unter `storage/photosets/<PHP-Session>/<Attempt-ID>/`.
 
+Run-Status und Run-Ressourcen werden mit der lokalen Attempt-ID als Cache-Key
+abgerufen. Das ist wichtig, falls BKI eine `run_id` erneut vergibt: Ein Reverse
+Proxy kann dadurch nicht versehentlich die Ergebnisantwort eines älteren Versuchs
+für die neue FotoSetCard ausliefern.
+
 Wird ein FotoSet abgelehnt und ein neuer Versuch gestartet, bleiben ältere Cards erhalten. In Schritt **FotoSet** kann zwischen den Versuchen über die Pfeile oder die Card-Leiste gewechselt werden. Auch in Schritt **Fotos** erscheint ein Link zurück zum FotoSetCard-Archiv.
 
 Das Auswählen einer alten Card ist zunächst nur eine Vorschau. Erst **„Ja, FotoSet verwenden“** bindet die gewählte Card wieder an die nachfolgenden Projekt-18-/Vehabi-Läufe. Dadurch wird verhindert, dass versehentlich Szenen mit einer anderen Card als der aktuell sichtbaren erzeugt werden.

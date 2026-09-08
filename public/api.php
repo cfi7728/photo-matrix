@@ -175,7 +175,8 @@ try {
         require_api($client);
         $runId = $flow->get('photoset_run', null);
         if (!$runId) throw new Exception('Kein aktiver FotoSet-Lauf.');
-        $run = $client->getRun($runId);
+        $generationId = $flow->get('photoset_generation_id', null);
+        $run = $client->getRun($runId, $generationId);
         $status = run_status($run);
         if ($status === 'succeeded' || $status === 'success' || $status === 'completed' || $status === 'done') {
             $images = extract_image_refs($run);
@@ -215,7 +216,7 @@ try {
         require_api($client);
         $runId = $flow->get('photoset_run', null);
         if (!$runId) throw new Exception('Kein FotoSet-Lauf in der aktuellen Session.');
-        $run = $client->getRun($runId);
+        $run = $client->getRun($runId, $flow->get('photoset_generation_id', null));
         $refs = extract_image_refs($run);
         json_response(array(
             'ok' => true,
@@ -384,7 +385,7 @@ try {
             );
             $runId = find_run_id($run);
             if (!$runId) throw new Exception('Für eine Szene wurde keine run_id zurückgegeben.');
-            $runs[] = array('scene' => $scene, 'run_id' => $runId, 'status' => 'queued');
+            $runs[] = array('scene' => $scene, 'run_id' => $runId, 'generation_id' => uuid_v4_compat(), 'status' => 'queued');
         }
         $flow->set('scene_runs', $runs);
         $flow->set('scene_results', array());
@@ -399,7 +400,7 @@ try {
         $anyFailed = false;
         $results = array();
         foreach ($runs as $i => $item) {
-            $run = $client->getRun($item['run_id']);
+            $run = $client->getRun($item['run_id'], isset($item['generation_id']) ? $item['generation_id'] : $flow->get('scene_draft', '') . '-' . $i);
             $status = run_status($run);
             $runs[$i]['status'] = $status ? $status : 'running';
             if ($status === 'succeeded' || $status === 'success' || $status === 'completed' || $status === 'done') {
@@ -914,12 +915,12 @@ function storage_session_dir($subdir) {
     return $dir;
 }
 
-function materialize_ref_to_file($client, $runId, $ref, $pathBase) {
+function materialize_ref_to_file($client, $runId, $ref, $pathBase, $generationKey = null) {
     $bytes = null; $type = 'image/png';
     if (!is_array($ref) || !isset($ref['type'])) return null;
     if ($ref['type'] === 'file' && isset($ref['file_id'])) {
-        try { $r = $runId ? $client->downloadRunResource($runId, $ref['file_id']) : $client->downloadFile($ref['file_id']); }
-        catch (Exception $e) { $r = $client->downloadFile($ref['file_id']); }
+        try { $r = $runId ? $client->downloadRunResource($runId, $ref['file_id'], $generationKey) : $client->downloadFile($ref['file_id'], $generationKey); }
+        catch (Exception $e) { $r = $client->downloadFile($ref['file_id'], $generationKey); }
         $bytes = $r['bytes']; $type = $r['content_type'];
     } else if ($ref['type'] === 'base64' && isset($ref['data'])) {
         $bytes = base64_decode($ref['data']); $type = isset($ref['mime']) ? $ref['mime'] : 'image/png';
@@ -942,7 +943,7 @@ function materialize_scene_batch($client, $flow, $results) {
     $out = array();
     foreach ((array)$results as $i => $result) {
         if (!is_array($result) || !isset($result['image'])) continue;
-        $saved = materialize_ref_to_file($client, isset($result['run_id']) ? $result['run_id'] : null, $result['image'], $dir . '/scene-' . ($i + 1));
+        $saved = materialize_ref_to_file($client, isset($result['run_id']) ? $result['run_id'] : null, $result['image'], $dir . '/scene-' . ($i + 1), $batchId);
         if ($saved) $result['saved_file'] = $saved;
         $result['batch_id'] = $batchId;
         $out[] = $result;
@@ -1351,7 +1352,7 @@ function materialize_photoset_attempt($client, $runId, $images, $attemptId) {
     if (!is_dir($dir) && !mkdir($dir, 0775, true)) throw new Exception('FotoSet-Verzeichnis konnte nicht angelegt werden.');
     $saved = array();
     foreach ((array)$images as $i => $ref) {
-        $path = materialize_ref_to_file($client, $runId, $ref, $dir . '/photoset-' . ($i + 1));
+        $path = materialize_ref_to_file($client, $runId, $ref, $dir . '/photoset-' . ($i + 1), $attemptId);
         if ($path) $saved[] = $path;
     }
     return $saved;
