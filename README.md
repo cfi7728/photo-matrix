@@ -3,7 +3,7 @@
 Mehrstufige, asynchrone Weboberfläche für den beschriebenen BKI-Workflow:
 
 1. 1–4 Referenzbilder hochladen.
-2. Projekt **23** mit Provider **`chatgpt`** starten und FotoSet-Ergebnisse pollen.
+2. Projekt **23** mit Provider **`browsercloud`** starten und FotoSet-Ergebnisse pollen.
 3. FotoSet lokal je Session zwischenspeichern und vom Benutzer freigeben lassen.
 4. Bei Ablehnung Ausgangsfotos einzeln ersetzen und mit neuem `draft_key` erneut starten.
 5. Größe, Geschlecht, Kleidung und Bildstil erfassen; Optionswerte werden zur Laufzeit aus Projekt **18** geladen.
@@ -64,7 +64,7 @@ Direkt danach wird der Run mit **demselben `draft_key`** gestartet. Ein leerer F
 
 ```json
 {
-  "provider": "chatgpt",
+  "provider": "browsercloud",
   "values": {},
   "section_texts": {},
   "draft_key": "DIESELBE-UUID-WIE-BEIM-UPLOAD"
@@ -183,7 +183,7 @@ Die Diagnose der aktuellen Projekt-23-Workbench zeigt die Ressourcengruppe **„
 3. `85` – Porträt - Profilansicht
 4. `86` – Porträt - lächelnd
 
-Bei 1–4 lokalen Referenzbildern ordnet die App Bild 1..N diesen Feldern in Workbench-Reihenfolge zu. Alle Uploads verwenden denselben `photoset_draft`. Danach wird die Workbench mit demselben Draft erneut geladen und erst anschließend Projekt 23 mit `provider=chatgpt` gestartet.
+Bei 1–4 lokalen Referenzbildern ordnet die App Bild 1..N diesen Feldern in Workbench-Reihenfolge zu. Alle Uploads verwenden denselben `photoset_draft`. Danach wird die Workbench mit demselben Draft erneut geladen und erst anschließend Projekt 23 mit `provider=browsercloud` gestartet.
 
 Der Diagnose-Endpunkt liefert jetzt zusätzlich `selected_field_ids` und `upload_plan`. Bei mehreren Ressourcenfeldern ist `selected_field_id: null` normal; maßgeblich ist die Liste `selected_field_ids`.
 

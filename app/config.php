@@ -14,7 +14,7 @@ return array(
     // Legacy-Override für Installationen mit genau einem Ressourcenfeld.
     'photoset_resource_field_id' => getenv('BKI_PHOTOSET_FIELD_ID') ? getenv('BKI_PHOTOSET_FIELD_ID') : '',
     'scene_resource_field_id' => getenv('BKI_SCENE_FIELD_ID') ? getenv('BKI_SCENE_FIELD_ID') : '',
-    'provider_photoset' => 'chatgpt',
+    'provider_photoset' => 'browsercloud',
     'provider_scene' => 'vehabi',
     // Optionale Binding-Overrides für Projekt 18. Normalerweise werden diese
     // automatisch aus der Workbench gelesen. Nur setzen, falls die Installation
