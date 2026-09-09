@@ -323,11 +323,11 @@ if (!headers_sent()) {
 
 <div class="photoset-library-modal" id="photoset-library-modal" aria-hidden="true">
     <div class="photoset-library-backdrop" id="photoset-library-backdrop"></div>
-    <div class="photoset-library-panel" role="dialog" aria-modal="true" aria-label="Gespeicherte FotoSets">
+    <div class="photoset-library-panel" role="dialog" aria-modal="true" aria-labelledby="photoset-library-title" tabindex="-1">
         <div class="photoset-library-head">
             <div>
                 <small>FOTOSET ARCHIVE // STORAGE</small>
-                <h2>Bestehendes FotoSet wählen</h2>
+                <h2 id="photoset-library-title">Bestehendes FotoSet wählen</h2>
                 <p>Gespeicherte FotoSetCards können direkt wiederverwendet werden. Nach der Auswahl kannst du das Set noch einmal prüfen und freigeben.</p>
             </div>
             <button class="gallery-x" id="photoset-library-x" type="button" aria-label="FotoSet-Archiv schließen">×</button>
@@ -340,14 +340,17 @@ if (!headers_sent()) {
 
 <div class="gallery-modal" id="gallery-modal" aria-hidden="true">
     <div class="gallery-backdrop" id="gallery-close"></div>
-    <div class="gallery-panel" role="dialog" aria-modal="true" aria-label="Szenen-Galerie">
+    <div class="gallery-panel" role="dialog" aria-modal="true" aria-labelledby="gallery-title" tabindex="-1">
         <button class="gallery-x" id="gallery-x" type="button" aria-label="Galerie schließen">×</button>
         <button class="gallery-nav prev" id="gallery-prev" type="button" aria-label="Vorheriges Bild">←</button>
         <figure class="gallery-figure">
-            <img id="gallery-image" alt="Szenenbild">
+            <div class="gallery-image-stage">
+                <img id="gallery-image" alt="Szenenbild">
+                <span class="gallery-image-status" id="gallery-image-status" role="status" aria-live="polite">Bild wird geladen …</span>
+            </div>
             <figcaption>
                 <small>SCENE GALLERY</small>
-                <strong id="gallery-title">Szene</strong>
+                <h2 id="gallery-title">Szene</h2>
                 <span id="gallery-meta"></span>
             </figcaption>
         </figure>
