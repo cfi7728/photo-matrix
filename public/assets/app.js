@@ -34,16 +34,40 @@
   function findLabel(select){return select.options[select.selectedIndex]?select.options[select.selectedIndex].text:''}
   function isOutside(text){text=(text||'').toLowerCase();return text.indexOf('auß')>=0||text.indexOf('auss')>=0||text.indexOf('outdoor')>=0||/^a(?:\s|[-_.:0-9])/.test(text)}
 
-  function renderUploads(){
-    var grid=$('#upload-grid'), uploads=App.state&&App.state.uploads?App.state.uploads:[];grid.innerHTML='';
+  function uploadSlot(i){return 'SRC '+String(i+1).padStart(2,'0')}
+  function announceUpload(message){var live=$('#upload-status');if(live){live.textContent='';setTimeout(function(){live.textContent=message},20)}}
+  function markUploadError(){var zone=$('#drop-zone');zone.classList.remove('upload-error');zone.offsetWidth;zone.classList.add('upload-error');setTimeout(function(){zone.classList.remove('upload-error')},240)}
+  function bindUploadCard(card,u){
+    card.querySelector('.replace').onclick=function(e){e.stopPropagation();App.replaceIndex=u.id;var input=$('#photo-input');input.multiple=false;input.click()};
+    card.querySelector('.remove').onclick=function(e){e.stopPropagation();var fd=new FormData();fd.append('upload_id',u.id);api('remove_upload',{method:'POST',body:fd}).then(function(r){
+      var removedSlot=Array.prototype.indexOf.call(card.parentNode.children,card)+1,finish=function(){App.state=r.state;renderUploads(null,'remove');renderPhotoSetHistory();renderWaitReferences();announceUpload('Referenzfoto '+removedSlot+' entfernt')};
+      if(window.matchMedia('(prefers-reduced-motion: reduce)').matches)finish();else{card.classList.add('upload-removing');setTimeout(finish,160)}
+    }).catch(function(e2){markUploadError();toast(e2.message)})};
+  }
+  function populateUploadCard(card,u,i){
+    card.setAttribute('data-upload-id',u.id);var img=card.querySelector('img');img.alt='Referenzfoto '+(i+1);img.src=u.url;
+    card.querySelector('.slot').textContent=uploadSlot(i);card.querySelector('.card-foot span:first-child').textContent=u.name;card.querySelector('.card-foot span:last-child').textContent=Math.round(u.size/1024)+' KB';bindUploadCard(card,u);
+  }
+  function lockUploadCard(card,u,i,delay,keepGeometry){
+    var reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches, mobile=window.matchMedia('(max-width: 560px)').matches,slot=card.querySelector('.slot'),foot=card.querySelector('.card-foot');
+    slot.textContent='SYNCING';if(reduced){slot.textContent=uploadSlot(i);announceUpload('Referenzfoto '+(i+1)+' erfolgreich hochgeladen');return}
+    card.style.setProperty('--upload-delay',delay+'ms');card.classList.add(keepGeometry?'upload-lock':'upload-reveal');requestAnimationFrame(function(){requestAnimationFrame(function(){card.classList.add(keepGeometry?'upload-lock-active':'upload-reveal-active')})});
+    setTimeout(function(){slot.textContent=mobile?uploadSlot(i)+' · LOCKED':uploadSlot(i);if(!mobile){foot.classList.add('identity-locked');foot.textContent='IDENTITY SOURCE · LOCKED'}announceUpload('Referenzfoto '+(i+1)+' erfolgreich hochgeladen')},delay+420);
+    setTimeout(function(){slot.textContent=uploadSlot(i);foot.classList.remove('identity-locked');foot.innerHTML='<span></span><span></span>';foot.querySelector('span:first-child').textContent=u.name;foot.querySelector('span:last-child').textContent=Math.round(u.size/1024)+' KB';card.classList.remove('upload-reveal','upload-reveal-active','upload-lock','upload-lock-active');card.style.removeProperty('--upload-delay')},delay+1320);
+  }
+  function renderUploads(changedId,changeType,replacedId){
+    var grid=$('#upload-grid'),uploads=App.state&&App.state.uploads?App.state.uploads:[],changed=Array.isArray(changedId)?changedId:(changedId?[changedId]:[]),existing={};
+    Array.prototype.forEach.call(grid.children,function(card){existing[card.getAttribute('data-upload-id')]=card});
     uploads.forEach(function(u,i){
-      var card=document.createElement('div');card.className='image-card';card.innerHTML='<img alt="Referenzfoto '+(i+1)+'"><span class="slot">SRC '+String(i+1).padStart(2,'0')+'</span><div class="card-actions"><button class="mini-btn replace" type="button">TAUSCHEN</button><button class="mini-btn remove" type="button">×</button></div><div class="card-foot"><span></span><span></span></div>';
-      card.querySelector('img').src=u.url;card.querySelector('.card-foot span:first-child').textContent=u.name;card.querySelector('.card-foot span:last-child').textContent=Math.round(u.size/1024)+' KB';
-      card.querySelector('.replace').onclick=function(e){e.stopPropagation();App.replaceIndex=u.id;var input=$('#photo-input');input.multiple=false;input.click()};
-      card.querySelector('.remove').onclick=function(e){e.stopPropagation();var fd=new FormData();fd.append('upload_id',u.id);api('remove_upload',{method:'POST',body:fd}).then(function(r){App.state=r.state;renderUploads();renderPhotoSetHistory()}).catch(function(e2){toast(e2.message)})};
+      var isChanged=changed.indexOf(u.id)>=0,card=existing[u.id];
+      if(!card&&changeType==='replace'&&isChanged&&replacedId)card=existing[replacedId];
+      if(!card){card=document.createElement('div');card.className='image-card';card.innerHTML='<img><span class="slot"></span><div class="card-actions"><button class="mini-btn replace" type="button">TAUSCHEN</button><button class="mini-btn remove" type="button" aria-label="Referenzfoto entfernen">×</button></div><div class="card-foot"><span></span><span></span></div>'}
+      delete existing[u.id];if(replacedId)delete existing[replacedId];
+      if(changeType==='replace'&&isChanged&&!window.matchMedia('(prefers-reduced-motion: reduce)').matches){card.querySelector('.slot').textContent='SYNCING';card.classList.add('upload-replacing');setTimeout(function(){populateUploadCard(card,u,i);card.querySelector('.slot').textContent='SYNCING';requestAnimationFrame(function(){card.classList.add('upload-replacing-in')});setTimeout(function(){card.classList.remove('upload-replacing','upload-replacing-in');lockUploadCard(card,u,i,0,true)},260)},140)}else{populateUploadCard(card,u,i);if(isChanged)lockUploadCard(card,u,i,window.matchMedia('(max-width: 560px)').matches?0:changed.indexOf(u.id)*70)}
       grid.appendChild(card);
     });
-    $('#generate-photoset').disabled=uploads.length<1;
+    Object.keys(existing).forEach(function(id){existing[id].remove()});
+    $('#generate-photoset').disabled=App.uploading||uploads.length<1;
   }
   function decryptGlyphs(seed){var chars='01ZXCVBNMASDFGHJKLQWERTYUIOPアイウエオカキクケコサシスセソ';var out='',len=180;for(var i=0;i<len;i++){out+=chars.charAt((i*7+seed*13+Math.floor(Math.random()*chars.length))%chars.length);if((i+1)%18===0)out+='\n';}return out;}
   function addDecryptLayer(card,index,kind){
@@ -209,7 +233,7 @@
     $('#restart-all').onclick=function(){api('reset_all',{method:'POST'}).then(function(){location.reload()}).catch(function(e){toast(e.message)})};$('#back-scenes').onclick=function(){gotoStep(5)};
     $('#gallery-close').onclick=closeGallery;$('#gallery-x').onclick=closeGallery;$('#gallery-prev').onclick=function(){shiftGallery(-1)};$('#gallery-next').onclick=function(){shiftGallery(1)};$$('[data-wait-view]').forEach(function(btn){btn.onclick=function(){setWaitView(btn.getAttribute('data-wait-view'))}});document.addEventListener('keydown',function(e){if($('#photoset-library-modal').classList.contains('open')){if(e.key==='Escape')closeSavedPhotoSets();return}if($('#gallery-modal').classList.contains('open')){if(e.key==='Escape')closeGallery();else if(e.key==='ArrowLeft')shiftGallery(-1);else if(e.key==='ArrowRight')shiftGallery(1);return}if($('#wait-layer').classList.contains('open')){if(e.key==='1'){setWaitView('references')}else if(e.key==='2'){setWaitView('identity')}else if(e.key==='3'){setWaitView('matrix')}else if(e.key==='4'){setWaitView('terminal')}else if(e.key==='ArrowLeft'){shiftWaitView(-1)}else if(e.key==='ArrowRight'){shiftWaitView(1)}}});
   }
-  function uploadFiles(files,replaceId){if(!files||!files.length)return;var fd=new FormData();Array.prototype.forEach.call(files,function(f){fd.append('photos[]',f)});if(replaceId!==null&&replaceId!==undefined)fd.append('replace_upload_id',replaceId);api('upload',{method:'POST',body:fd}).then(function(r){App.state=r.state;renderUploads();renderPhotoSetHistory();renderWaitReferences()}).catch(function(e){toast(e.message)})}
+  function uploadFiles(files,replaceId){if(!files||!files.length)return;var before=(App.state&&App.state.uploads||[]).map(function(u){return u.id}),button=$('#generate-photoset'),original=button.textContent;App.uploading=true;button.disabled=true;button.textContent='Upload läuft …';var fd=new FormData();Array.prototype.forEach.call(files,function(f){fd.append('photos[]',f)});if(replaceId!==null&&replaceId!==undefined)fd.append('replace_upload_id',replaceId);api('upload',{method:'POST',body:fd}).then(function(r){var uploads=r.state.uploads||[],changed=uploads.filter(function(u){return before.indexOf(u.id)<0}).map(function(u){return u.id});App.state=r.state;App.uploading=false;renderUploads(changed,replaceId!==null&&replaceId!==undefined?'replace':'upload',replaceId);renderPhotoSetHistory();renderWaitReferences()}).catch(function(e){App.uploading=false;markUploadError();toast(e.message)}).finally(function(){button.textContent=original;button.disabled=!(App.state&&App.state.uploads&&App.state.uploads.length)})}
 
   function matrix(canvas,opacityMode){
     var ctx=canvas.getContext('2d'),font=opacityMode?14:12,drops=[],cols=0,chars='01ABCDEFGHIJKLMNOPQRSTUVWXYZアイウエオカキクケコサシスセソ';function resize(){var dpr=Math.min(window.devicePixelRatio||1,2);canvas.width=innerWidth*dpr;canvas.height=innerHeight*dpr;canvas.style.width=innerWidth+'px';canvas.style.height=innerHeight+'px';ctx.setTransform(dpr,0,0,dpr,0,0);cols=Math.ceil(innerWidth/font);drops=[];for(var i=0;i<cols;i++)drops[i]=Math.random()*-80}function draw(){ctx.fillStyle=opacityMode?'rgba(0,5,2,.10)':'rgba(2,7,4,.12)';ctx.fillRect(0,0,innerWidth,innerHeight);ctx.font=font+'px ui-monospace, monospace';ctx.fillStyle=opacityMode?'rgba(85,255,136,.6)':'rgba(85,255,136,.45)';for(var i=0;i<drops.length;i++){var ch=chars.charAt(Math.floor(Math.random()*chars.length));ctx.fillText(ch,i*font,drops[i]*font);if(drops[i]*font>innerHeight&&Math.random()>.975)drops[i]=0;drops[i]+=.42+Math.random()*.5}requestAnimationFrame(draw)}resize();window.addEventListener('resize',resize);draw()}

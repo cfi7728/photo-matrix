@@ -51,6 +51,7 @@ if (!headers_sent()) {
             <span>oder klicken · JPEG / PNG / WEBP · max. 4 Dateien</span>
         </div>
         <div id="upload-grid" class="image-grid upload-grid"></div>
+        <div id="upload-status" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
 
         <div class="existing-photoset-choice">
             <div class="existing-photoset-divider"><span>ODER</span></div>
