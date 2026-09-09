@@ -38,6 +38,7 @@ if (!headers_sent()) {
         <i></i><button type="button" data-step-nav="6"><b>06</b><span>Resultat</span></button>
     </nav>
 
+    <div class="stage-container">
     <section class="stage active" data-step="1">
         <div class="eyebrow">INPUT NODE // 01</div>
         <h1>Referenzfotos laden</h1>
@@ -163,6 +164,7 @@ if (!headers_sent()) {
         </div>
     </section>
 
+    </div>
     <footer><span>BKI WORKFLOW</span><span>PROJECT 23 → PROJECT 18</span><span>ASYNC RUN ENGINE</span></footer>
 </main>
 
