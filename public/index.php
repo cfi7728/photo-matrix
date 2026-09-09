@@ -149,7 +149,12 @@ if (!headers_sent()) {
         <p class="lead">Es werden nur Szenen aus der zur Location passenden Gruppe angeboten: A Außen · B Büro · C Zuhause beim Kunden · D Im Objekt · E Erweitert.</p>
         <form id="scenes-form">
             <div id="scene-options" class="scene-grid"></div>
-            <div class="selection-meter"><span id="scene-count">0 / 3 gewählt</span><i><b id="scene-meter"></b></i></div>
+            <div class="selection-meter">
+                <span id="scene-count" aria-live="polite" aria-atomic="true">0 / 3 gewählt</span>
+                <div class="selection-meter-segments" id="scene-meter" aria-hidden="true">
+                    <i><b></b></i><i><b></b></i><i><b></b></i>
+                </div>
+            </div>
             <div class="actions right"><button class="btn primary" id="start-scenes" type="submit" disabled>3 Szenen generieren <span>→</span></button></div>
         </form>
     </section>
