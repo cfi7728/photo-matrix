@@ -156,7 +156,7 @@ try {
         $attempt = begin_photoset_attempt($flow, $draft);
         $run = $client->startRun(
             app_config('project_photoset', 23),
-            app_config('provider_photoset', 'chatgpt'),
+            app_config('provider_photoset', 'browsercloud'),
             array(),
             $draft,
             array('section_texts' => array())
