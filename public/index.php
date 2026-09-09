@@ -174,18 +174,24 @@ if (!headers_sent()) {
     <footer><span>BKI WORKFLOW</span><span>PROJECT 23 → PROJECT 18</span><span>ASYNC RUN ENGINE</span></footer>
 </main>
 
-<div class="wait-layer" id="wait-layer" aria-hidden="true">
+<div class="wait-layer" id="wait-layer" role="dialog" aria-modal="true" aria-labelledby="wait-title" aria-hidden="true">
     <canvas id="wait-matrix"></canvas>
     <div class="wait-card cinematic">
         <div class="wait-head">
             <div>
                 <div class="wait-kicker" id="wait-kicker">PROCESSING</div>
                 <h2 id="wait-title">Daten werden verarbeitet</h2>
-                <p id="wait-message">Verbindung zum Generierungsdienst wird aufgebaut …</p>
+                <p id="wait-message" role="status" aria-live="polite" aria-atomic="true">References ready to sync</p>
             </div>
             <div class="orb"><span></span><span></span><span></span></div>
         </div>
 
+        <ol class="wait-pipeline" id="wait-pipeline" aria-label="Pipeline status">
+            <li data-wait-phase="input"><span>1</span><strong>INPUT SYNC</strong></li>
+            <li data-wait-phase="run"><span>2</span><strong>SYNTHESIS RUN</strong></li>
+            <li data-wait-phase="fetch"><span>3</span><strong>RESULT FETCH</strong></li>
+            <li data-wait-phase="store"><span>4</span><strong>LOCAL LOCK</strong></li>
+        </ol>
         <div class="wait-toolbar">
             <div class="wait-tabs" id="wait-tabs">
                 <button type="button" class="wait-tab active" data-wait-view="references">REFERENCES</button>
@@ -193,7 +199,7 @@ if (!headers_sent()) {
                 <button type="button" class="wait-tab" data-wait-view="matrix">MATRIX</button>
                 <button type="button" class="wait-tab" data-wait-view="terminal">TERMINAL</button>
             </div>
-            <div class="wait-toolbar-meta"><div class="wait-auto-meta" id="wait-auto-meta">AUTO 01 / 14</div><div class="wait-chip" id="wait-visual-note">VISUAL PROCESS REPRESENTATION</div></div>
+            <div class="wait-toolbar-meta"><div class="wait-auto-meta" id="wait-auto-meta">MANUAL VISUALS</div><div class="wait-chip" id="wait-visual-note">VISUAL PROCESS REPRESENTATION</div></div>
         </div>
 
         <div class="wait-visuals">
@@ -309,7 +315,8 @@ if (!headers_sent()) {
         <div class="activity-track" aria-hidden="true">
             <b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b>
         </div>
-        <div class="wait-meta detailed"><span id="wait-elapsed">Elapsed 00:00</span><span id="wait-status-line">IDENTITY SYNTHESIS ACTIVE</span><span>DO NOT CLOSE THIS WINDOW</span></div>
+        <button class="btn ghost wait-retry" id="wait-retry" type="button" hidden>Erneut versuchen</button>
+        <div class="wait-meta detailed"><span id="wait-elapsed">Elapsed 00:00</span><span id="wait-status-line">INPUT SYNC</span><span>DO NOT CLOSE THIS WINDOW</span></div>
     </div>
 </div>
 
