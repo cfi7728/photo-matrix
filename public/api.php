@@ -156,7 +156,9 @@ try {
         $attempt = begin_photoset_attempt($flow, $draft);
         $run = $client->startRun(
             app_config('project_photoset', 23),
-            app_config('provider_photoset', 'browsercloud'),
+            // FotoSetCards werden ausschließlich über Browsercloud erzeugt. Der
+            // Provider ist absichtlich kein konfigurierbarer Deployment-Wert.
+            'browsercloud',
             array(),
             $draft,
             array('section_texts' => array())
