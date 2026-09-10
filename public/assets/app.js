@@ -26,9 +26,36 @@
     if(reducedMotion())finish();else modal._closeTimer=setTimeout(finish,160);
   }
 
+  function consoleErrorDetails(action,details){
+    details=details||{};
+    if(!window.console||typeof window.console.error!=='function')return;
+    var label='[Photo Matrix] API-Fehler bei '+action;
+    if(typeof window.console.groupCollapsed==='function')window.console.groupCollapsed(label);
+    window.console.error(label,details);
+    if(details.error&&details.error.stack)window.console.error(details.error.stack);
+    if(typeof window.console.groupEnd==='function'&&typeof window.console.groupCollapsed==='function')window.console.groupEnd();
+  }
   function api(action, opts){
-    opts=opts||{}; var url='api.php?action='+encodeURIComponent(action);
-    return fetch(url,{method:opts.method||'GET',body:opts.body||null,credentials:'same-origin',headers:opts.headers||{}}).then(function(r){return r.json().then(function(j){if(!r.ok||j.ok===false&&opts.strict!==false) throw new Error(j.message||'Serverfehler');return j;});});
+    opts=opts||{};var url='api.php?action='+encodeURIComponent(action),method=opts.method||'GET',started=Date.now();
+    return fetch(url,{method:method,body:opts.body||null,credentials:'same-origin',headers:opts.headers||{}}).then(function(r){
+      return r.text().then(function(body){
+        var j=null,parseError=null;
+        try{j=body?JSON.parse(body):null}catch(e){parseError=e}
+        if(parseError||!j||!r.ok||j.ok===false&&opts.strict!==false){
+          var message=j&&j.message?j.message:(parseError?'Ungültige Serverantwort (kein JSON)':'Serverfehler'),error=new Error(message);
+          error._photoMatrixLogged=true;
+          consoleErrorDetails(action,{method:method,url:url,httpStatus:r.status,httpStatusText:r.statusText,durationMs:Date.now()-started,response:j||body.slice(0,4000),parseError:parseError,error:error});
+          throw error;
+        }
+        return j;
+      });
+    }).catch(function(error){
+      if(!error._photoMatrixLogged){error._photoMatrixLogged=true;consoleErrorDetails(action,{method:method,url:url,durationMs:Date.now()-started,error:error});}
+      throw error;
+    });
+  }
+  function generationFailure(action,response,message){
+    consoleErrorDetails(action,{message:message,status:response&&response.status,runId:response&&response.run_id,response:response});
   }
   function toast(msg,actionLabel,action){var t=$('#toast');t.innerHTML='';var text=document.createElement('span');text.textContent=msg;t.appendChild(text);if(actionLabel&&action){var button=document.createElement('button');button.type='button';button.textContent=actionLabel;button.onclick=function(){t.classList.remove('show');action()};t.appendChild(button)}t.classList.add('show');setTimeout(function(){t.classList.remove('show')},action?12000:5200)}
   function gotoStep(n){
@@ -253,7 +280,7 @@
   }
   function photoSetRetry(){startWait('photoset');pollPhotoSet()}
   function pollPhotoSet(){
-    api('poll_photoset',{strict:false}).then(function(r){if(r.ok&&r.status==='succeeded'){App.state=r.state;var libraryRefresh=refreshSavedPhotoSets(false);finishWaitWithDecrypt('photoset',function(){renderPhotoSet(App.state.photoset_images||r.images,true);renderPhotoSetHistory();gotoStep(2)});libraryRefresh.then(function(result){if(!result.ok)toast('Die neue FotoSetCard ist verfügbar, aber das dauerhafte Archiv konnte nicht aktualisiert werden.')})}else if(r.status==='succeeded_storage_failed'){if(r.state)App.state=r.state;setWaitPhase('store','Local storage failed','matrix');setWaitError('Local storage failed',photoSetRetry);toast(r.message||'Das FotoSet konnte nicht gespeichert werden.','SPEICHERN WIEDERHOLEN',photoSetRetry)}else if(r.ok){setWaitPhase('fetch','Waiting for result','matrix');setTimeout(pollPhotoSet,1800)}else{setWaitError(r.message||'FotoSet request failed',photoSetRetry);toast(r.message||'FotoSet-Generierung fehlgeschlagen.','ERNEUT VERSUCHEN',photoSetRetry)}}).catch(function(e){setWaitError('Request failed',photoSetRetry);toast(e.message,'ERNEUT VERSUCHEN',photoSetRetry)});
+    api('poll_photoset',{strict:false}).then(function(r){if(r.ok&&r.status==='succeeded'){App.state=r.state;var libraryRefresh=refreshSavedPhotoSets(false);finishWaitWithDecrypt('photoset',function(){renderPhotoSet(App.state.photoset_images||r.images,true);renderPhotoSetHistory();gotoStep(2)});libraryRefresh.then(function(result){if(!result.ok)toast('Die neue FotoSetCard ist verfügbar, aber das dauerhafte Archiv konnte nicht aktualisiert werden.')})}else if(r.status==='succeeded_storage_failed'){if(r.state)App.state=r.state;generationFailure('poll_photoset',r,r.message);setWaitPhase('store','Local storage failed','matrix');setWaitError('Local storage failed',photoSetRetry);toast(r.message||'Das FotoSet konnte nicht gespeichert werden.','SPEICHERN WIEDERHOLEN',photoSetRetry)}else if(r.ok){setWaitPhase('fetch','Waiting for result','matrix');setTimeout(pollPhotoSet,1800)}else{generationFailure('poll_photoset',r,r.message||'FotoSet-Generierung fehlgeschlagen.');setWaitError(r.message||'FotoSet request failed',photoSetRetry);toast(r.message||'FotoSet-Generierung fehlgeschlagen.','ERNEUT VERSUCHEN',photoSetRetry)}}).catch(function(e){setWaitError('Request failed',photoSetRetry);toast(e.message,'ERNEUT VERSUCHEN',photoSetRetry)});
   }
   function scenesRetry(){startWait('scenes');pollScenes()}
   function pollScenes(){
