@@ -11,10 +11,13 @@ if ($start === false || $end === false) {
 
 $startPhotoSet = substr($source, $start, $end - $start);
 if (strpos($startPhotoSet, "'browsercloud'") === false) {
-    throw new Exception('FotoSetCards werden nicht mit Browsercloud gestartet.');
+    throw new Exception('FotoSetCards werden nicht mit browsercloud gestartet.');
 }
 if (strpos($startPhotoSet, "app_config('provider_photoset'") !== false) {
     throw new Exception('Der FotoSet-Provider darf nicht konfigurierbar sein.');
 }
+if (preg_match('/browsercloud/i', $startPhotoSet, $providerMatch) && $providerMatch[0] !== 'browsercloud') {
+    throw new Exception('Der Providername muss durchgehend kleingeschrieben werden: browsercloud.');
+}
 
-echo "OK: FotoSetCards werden fest mit Browsercloud gestartet.\n";
+echo "OK: FotoSetCards werden fest mit browsercloud gestartet.\n";
