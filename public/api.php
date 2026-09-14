@@ -159,7 +159,11 @@ try {
             app_config('provider_photoset', 'browsercloud'),
             array(),
             $draft,
-            array('section_texts' => array())
+            array(
+                'section_texts' => array(),
+                'aspect_ratio' => '16:9',
+                'random_fields' => array()
+            )
         );
         $runId = find_run_id($run);
         if (!$runId) throw new Exception('BKI hat keine run_id für Projekt 23 zurückgegeben.');
