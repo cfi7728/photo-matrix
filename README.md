@@ -69,9 +69,16 @@ Direkt danach wird der Run mit **demselben `draft_key`** gestartet. Ein leerer F
   "provider": "browsercloud",
   "values": {},
   "section_texts": {},
-  "draft_key": "DIESELBE-UUID-WIE-BEIM-UPLOAD"
+  "draft_key": "DIESELBE-UUID-WIE-BEIM-UPLOAD",
+  "aspect_ratio": "16:9",
+  "random_fields": []
 }
 ```
+
+Damit entspricht der von der Anwendung gesendete Body vollständig dem für die
+FotoSet-Erstellung bestätigten Request. Insbesondere sind `values` und
+`section_texts` JSON-Objekte, während `random_fields` bewusst ein JSON-Array ist.
+Jeder Start erhält außerdem einen neu erzeugten `Idempotency-Key` als HTTP-Header.
 
 Für Projekt 18 gilt dasselbe Prinzip; Provider ist dort `vehabi`, während `values` die anhand der Workbench-Binding-IDs gesetzten Profil-, Location- und Szenenwerte enthält.
 

@@ -38,6 +38,12 @@ $startPhotoSet = substr($source, $start, $end - $start);
 if (strpos($startPhotoSet, "app_config('provider_photoset', 'browsercloud')") === false) {
     throw new Exception('Der FotoSet-Handler verwendet nicht den konfigurierten Provider mit technischem Standardwert.');
 }
+if (strpos($startPhotoSet, "'aspect_ratio' => '16:9'") === false) {
+    throw new Exception('Der FotoSet-Handler sendet nicht das bestätigte Seitenverhältnis 16:9.');
+}
+if (strpos($startPhotoSet, "'random_fields' => array()") === false) {
+    throw new Exception('Der FotoSet-Handler sendet random_fields nicht als leeres JSON-Array.');
+}
 
 // Den vollständigen von BkiClient erzeugten Run-Payload für Standard und Override
 // prüfen, damit auch spätere Umwandlungen vor dem HTTP-Aufruf auffallen.
@@ -63,10 +69,26 @@ class RecordingBkiClient extends BkiClient {
 
 $client = new RecordingBkiClient();
 foreach (array($defaultConfig['provider_photoset'], $overrideConfig['provider_photoset']) as $provider) {
-    $client->startRun(23, $provider, array(), 'test-draft', array('section_texts' => array()));
+    $client->startRun(23, $provider, array(), 'test-draft', array(
+        'section_texts' => array(),
+        'aspect_ratio' => '16:9',
+        'random_fields' => array()
+    ));
     if (!isset($client->recordedBody['provider']) || $client->recordedBody['provider'] !== $provider) {
         throw new Exception('Der vollständige Run-Payload enthält nicht den erwarteten technischen Provider-Identifier.');
     }
+    $encodedBody = json_encode($client->recordedBody);
+    $expectedBody = json_encode(array(
+        'provider' => $provider,
+        'values' => new stdClass(),
+        'section_texts' => new stdClass(),
+        'draft_key' => 'test-draft',
+        'aspect_ratio' => '16:9',
+        'random_fields' => array()
+    ));
+    if ($encodedBody !== $expectedBody) {
+        throw new Exception('Der FotoSet-Run entspricht nicht dem nachgewiesen funktionierenden API-Payload: ' . $encodedBody);
+    }
 }
 
-echo "OK: Projekt 23 sendet browsercloud als Standard und unterstützt einen Provider-Override.\n";
+echo "OK: Projekt 23 sendet den vollständigen browsercloud-FotoSet-Payload und unterstützt einen Provider-Override.\n";
