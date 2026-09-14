@@ -726,10 +726,87 @@ function run_status($run) {
 }
 
 function run_error_message($run) {
-    $data = isset($run['data']) && is_array($run['data']) ? $run['data'] : $run;
-    if (isset($data['error']['message'])) return (string)$data['error']['message'];
-    if (isset($data['message'])) return (string)$data['message'];
+    $limits = array('depth' => 6, 'nodes' => 120, 'length' => 600);
+    $containers = array('error', 'errors', 'provider_response', 'provider_result', 'result', 'output', 'response');
+
+    // Eine explizite message ist aussagekräftiger als Codes oder sonstige Details.
+    $messages = array();
+    $seen = 0;
+    collect_run_error_values($run, true, $messages, $seen, 0, $limits, $containers, 'run');
+    if (count($messages)) return $messages[0];
+
+    // Erst wenn keine message existiert, wenige unkritische Fehlerdetails zeigen.
+    $details = array();
+    $seen = 0;
+    collect_run_error_values($run, false, $details, $seen, 0, $limits, $containers, 'run');
+    if (count($details)) return implode(' | ', array_slice(array_values(array_unique($details)), 0, 3));
     return 'Generierung fehlgeschlagen.';
+}
+
+function collect_run_error_values($node, $messagesOnly, &$found, &$seen, $depth, $limits, $containers, $path) {
+    if ($depth > $limits['depth'] || $seen >= $limits['nodes'] || count($found) >= 6) return;
+    $seen++;
+
+    if (is_string($node)) {
+        // Providerantworten sind gelegentlich ein JSON-kodierter String.
+        if (strlen($node) <= 65536 && preg_match('/^\s*[\[{]/', $node)) {
+            $decoded = json_decode($node, true);
+            if (is_array($decoded)) collect_run_error_values($decoded, $messagesOnly, $found, $seen, $depth + 1, $limits, $containers, $path . '.json');
+        } else if (!$messagesOnly && preg_match('/(^|\.)(errors?|details?)($|\.)/', $path)) {
+            $safe = sanitize_run_error_value($node, $path, $limits['length']);
+            if ($safe !== '') $found[] = $safe;
+        }
+        return;
+    }
+    if (!is_array($node)) return;
+
+    if ($messagesOnly && array_key_exists('message', $node) && is_scalar($node['message'])) {
+        $safe = sanitize_run_error_value((string)$node['message'], $path . '.message', $limits['length']);
+        if ($safe !== '') $found[] = $safe;
+    }
+
+    if (!$messagesOnly) {
+        foreach (array('detail', 'details', 'reason', 'description', 'error_description', 'code', 'error_code', 'type') as $key) {
+            if (array_key_exists($key, $node) && is_scalar($node[$key])) {
+                $safe = sanitize_run_error_value((string)$node[$key], $path . '.' . $key, $limits['length']);
+                if ($safe !== '') $found[] = $safe;
+            }
+        }
+    }
+
+    // data ist nur die BKI-Antworthülle; alle anderen Traversierungen bleiben auf
+    // bekannte Ergebnis-/Fehlercontainer begrenzt, damit Inputs nicht durchsickern.
+    $keys = $containers;
+    array_unshift($keys, 'data');
+    foreach ($keys as $key) {
+        if (!array_key_exists($key, $node)) continue;
+        collect_run_error_values($node[$key], $messagesOnly, $found, $seen, $depth + 1, $limits, $containers, $path . '.' . $key);
+    }
+
+    // Numerische Einträge unterstützen insbesondere BKI-Fehlerlisten.
+    foreach ($node as $key => $value) {
+        if (is_int($key) || ctype_digit((string)$key)) {
+            collect_run_error_values($value, $messagesOnly, $found, $seen, $depth + 1, $limits, $containers, $path . '.errors');
+        }
+    }
+}
+
+function sanitize_run_error_value($value, $path, $maxLength) {
+    if (preg_match('/(^|\.)(prompt|prompts|prompt_text|section_texts|input|inputs|token|tokens|api[_-]?key|authorization|secret|password|image|images|base64)($|\.)/i', $path)) return '';
+    $value = trim(preg_replace('/[\x00-\x1F\x7F]+/', ' ', (string)$value));
+    if ($value === '' || preg_match('/^data:[^;]+;base64,/i', $value)) return '';
+    if (strlen($value) > 160 && preg_match('/^[A-Za-z0-9+\/_=-]+$/', $value)) return '';
+    // Keine möglicherweise eingebetteten Zugangsdaten aus Providertexten ausgeben.
+    $value = preg_replace('/\bBearer\s+[A-Za-z0-9._~+\/-]+=*/i', 'Bearer [REDACTED]', $value);
+    $value = preg_replace('/\b(sk|pk)-[A-Za-z0-9_-]{12,}\b/i', '$1-[REDACTED]', $value);
+    $value = preg_replace('/\b(api[_ -]?key|access[_ -]?token|secret|password)\s*[:=]\s*[^\s,;]+/i', '$1=[REDACTED]', $value);
+    // Ein als Text zurückgespiegelter Prompt wird lieber ganz verworfen.
+    if (preg_match('/\b(system[_ -]?prompt|prompt(?:[_ -]?text)?|section[_ -]?texts?)\s*[:=]/i', $value)) return '';
+    if (strlen($value) > $maxLength) {
+        $value = function_exists('mb_strcut') ? mb_strcut($value, 0, $maxLength - 3, 'UTF-8') : substr($value, 0, $maxLength - 3);
+        $value .= '...';
+    }
+    return $value;
 }
 
 function extract_image_refs($root) {
