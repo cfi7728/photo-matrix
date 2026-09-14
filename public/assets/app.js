@@ -87,16 +87,15 @@
   function uploadSlot(i){return 'SRC '+String(i+1).padStart(2,'0')}
   function announceUpload(message){var live=$('#upload-status');if(live){live.textContent='';setTimeout(function(){live.textContent=message},20)}}
   function markUploadError(){var zone=$('#drop-zone');zone.classList.remove('upload-error');zone.offsetWidth;zone.classList.add('upload-error');setTimeout(function(){zone.classList.remove('upload-error')},240)}
-  function bindUploadCard(card,u){
-    card.querySelector('.replace').onclick=function(e){e.stopPropagation();App.replaceIndex=u.id;var input=$('#photo-input');input.multiple=false;input.click()};
-    card.querySelector('.remove').onclick=function(e){e.stopPropagation();var fd=new FormData();fd.append('upload_id',u.id);api('remove_upload',{method:'POST',body:fd}).then(function(r){
-      var removedSlot=Array.prototype.indexOf.call(card.parentNode.children,card)+1,finish=function(){App.state=r.state;renderUploads(null,'remove');renderPhotoSetHistory();renderWaitReferences();announceUpload('Referenzfoto '+removedSlot+' entfernt')};
-      if(window.matchMedia('(prefers-reduced-motion: reduce)').matches)finish();else{card.classList.add('upload-removing');setTimeout(finish,160)}
-    }).catch(function(e2){markUploadError();toast(e2.message)})};
-  }
+  function replaceUpload(card){var input=$('#photo-input');App.replaceIndex=card.getAttribute('data-upload-id');input.multiple=false;input.click()}
+  function removeUpload(card){var fd=new FormData();fd.append('upload_id',card.getAttribute('data-upload-id'));api('remove_upload',{method:'POST',body:fd}).then(function(r){
+    var removedSlot=Array.prototype.indexOf.call(card.parentNode.children,card)+1,finish=function(){App.state=r.state;renderUploads(null,'remove');renderPhotoSetHistory();renderWaitReferences();announceUpload('Referenzfoto '+removedSlot+' entfernt')};
+    if(window.matchMedia('(prefers-reduced-motion: reduce)').matches)finish();else{card.classList.add('upload-removing');setTimeout(finish,160)}
+  }).catch(function(e){markUploadError();toast(e.message)})}
+  function handleUploadAction(e){var button=e.target.closest&&e.target.closest('.card-actions button');if(!button)return;var card=button.closest('.image-card');if(!card||!e.currentTarget.contains(card))return;e.preventDefault();e.stopPropagation();if(button.classList.contains('replace'))replaceUpload(card);else if(button.classList.contains('remove'))removeUpload(card)}
   function populateUploadCard(card,u,i){
     card.setAttribute('data-upload-id',u.id);var img=card.querySelector('img');img.alt='Referenzfoto '+(i+1);img.src=u.url;
-    card.querySelector('.slot').textContent=uploadSlot(i);card.querySelector('.card-foot span:first-child').textContent=u.name;card.querySelector('.card-foot span:last-child').textContent=Math.round(u.size/1024)+' KB';bindUploadCard(card,u);
+    card.querySelector('.slot').textContent=uploadSlot(i);card.querySelector('.card-foot span:first-child').textContent=u.name;card.querySelector('.card-foot span:last-child').textContent=Math.round(u.size/1024)+' KB';
   }
   function lockUploadCard(card,u,i,delay,keepGeometry){
     var reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches, mobile=window.matchMedia('(max-width: 560px)').matches,slot=card.querySelector('.slot'),foot=card.querySelector('.card-foot');
@@ -111,7 +110,7 @@
     uploads.forEach(function(u,i){
       var isChanged=changed.indexOf(u.id)>=0,card=existing[u.id];
       if(!card&&changeType==='replace'&&isChanged&&replacedId)card=existing[replacedId];
-      if(!card){card=document.createElement('div');card.className='image-card';card.innerHTML='<img><span class="slot"></span><div class="card-actions"><button class="mini-btn replace" type="button">TAUSCHEN</button><button class="mini-btn remove" type="button" aria-label="Referenzfoto entfernen">×</button></div><div class="card-foot"><span></span><span></span></div>'}
+      if(!card){card=document.createElement('div');card.className='image-card';card.innerHTML='<img><span class="slot"></span><div class="card-actions"><button class="mini-btn replace" type="button" aria-label="Referenzfoto tauschen">TAUSCHEN</button><button class="mini-btn remove" type="button" aria-label="Referenzfoto entfernen">×</button></div><div class="card-foot"><span></span><span></span></div>'}
       delete existing[u.id];if(replacedId)delete existing[replacedId];
       if(changeType==='replace'&&isChanged&&!window.matchMedia('(prefers-reduced-motion: reduce)').matches){card.querySelector('.slot').textContent='SYNCING';card.classList.add('upload-replacing');setTimeout(function(){populateUploadCard(card,u,i);card.querySelector('.slot').textContent='SYNCING';requestAnimationFrame(function(){card.classList.add('upload-replacing-in')});setTimeout(function(){card.classList.remove('upload-replacing','upload-replacing-in');lockUploadCard(card,u,i,0,true)},260)},140)}else{populateUploadCard(card,u,i);if(isChanged)lockUploadCard(card,u,i,window.matchMedia('(max-width: 560px)').matches?0:changed.indexOf(u.id)*70)}
       grid.appendChild(card);
@@ -288,7 +287,7 @@
   }
 
   function bind(){
-    var zone=$('#drop-zone'),input=$('#photo-input');zone.onclick=function(){App.replaceIndex=null;input.multiple=true;input.click()};['dragenter','dragover'].forEach(function(ev){zone.addEventListener(ev,function(e){e.preventDefault();zone.classList.add('drag')})});['dragleave','drop'].forEach(function(ev){zone.addEventListener(ev,function(e){e.preventDefault();zone.classList.remove('drag')})});zone.addEventListener('drop',function(e){uploadFiles(e.dataTransfer.files,null)});input.addEventListener('change',function(){uploadFiles(input.files,App.replaceIndex);input.value='';input.multiple=true;App.replaceIndex=null});
+    var zone=$('#drop-zone'),input=$('#photo-input'),uploadGrid=$('#upload-grid');uploadGrid.addEventListener('click',handleUploadAction);zone.onclick=function(){App.replaceIndex=null;input.multiple=true;input.click()};['dragenter','dragover'].forEach(function(ev){zone.addEventListener(ev,function(e){e.preventDefault();zone.classList.add('drag')})});['dragleave','drop'].forEach(function(ev){zone.addEventListener(ev,function(e){e.preventDefault();zone.classList.remove('drag')})});zone.addEventListener('drop',function(e){uploadFiles(e.dataTransfer.files,null)});input.addEventListener('change',function(){uploadFiles(input.files,App.replaceIndex);input.value='';input.multiple=true;App.replaceIndex=null});
     $('#generate-photoset').onclick=function(){var retry=function(){$('#generate-photoset').click()};startWait('photoset');api('start_photoset',{method:'POST'}).then(function(){runAccepted();pollPhotoSet()}).catch(function(e){setWaitError('Request failed',retry);toast(e.message,'ERNEUT VERSUCHEN',retry)})};
     $('#open-saved-photosets').onclick=function(){var grid=$('#photoset-library-grid');if(grid)grid.innerHTML='<div class="photoset-library-loading">Storage wird gelesen …</div>';openSavedPhotoSets();refreshSavedPhotoSets(true)};$('#photoset-library-backdrop').onclick=closeSavedPhotoSets;$('#photoset-library-x').onclick=closeSavedPhotoSets;
     $('#reject-photoset').onclick=function(){api('restart_photoset',{method:'POST'}).then(function(r){App.state=r.state;gotoStep(1);renderUploads();renderPhotoSetHistory()}).catch(function(e){toast(e.message)})};
