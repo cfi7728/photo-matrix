@@ -210,7 +210,16 @@ try {
             json_response(array('ok' => true, 'status' => 'succeeded', 'attempt_id' => $attempt['id'], 'card_created' => !empty($attempt['_card_created']), 'card_reused' => !empty($attempt['_card_reused']), 'images' => public_photoset_attempt_images($attempt), 'state' => public_state($flow)), 200);
         }
         if ($status === 'failed' || $status === 'error' || $status === 'cancelled' || $status === 'canceled') {
-            json_response(array('ok' => false, 'status' => $status, 'message' => run_error_message($run)), 200);
+            $failure = array(
+                'ok' => false,
+                'status' => $status,
+                'message' => run_error_message($run),
+                'run_id' => $runId
+            );
+            $attemptId = $flow->get('active_photoset_attempt_id', null);
+            if ($attemptId) $failure['attempt_id'] = $attemptId;
+            if ($generationId) $failure['photoset_generation_id'] = $generationId;
+            json_response($failure, 200);
         }
         json_response(array('ok' => true, 'status' => $status ? $status : 'running'), 200);
     }
