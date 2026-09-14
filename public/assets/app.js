@@ -55,7 +55,7 @@
     });
   }
   function generationFailure(action,response,message){
-    consoleErrorDetails(action,{message:message,status:response&&response.status,runId:response&&response.run_id,response:response});
+    consoleErrorDetails(action,{message:message,status:response&&response.status,runId:response&&response.run_id,attemptId:response&&response.attempt_id,photosetGenerationId:response&&response.photoset_generation_id,response:response});
   }
   function toast(msg,actionLabel,action){var t=$('#toast');t.innerHTML='';var text=document.createElement('span');text.textContent=msg;t.appendChild(text);if(actionLabel&&action){var button=document.createElement('button');button.type='button';button.textContent=actionLabel;button.onclick=function(){t.classList.remove('show');action()};t.appendChild(button)}t.classList.add('show');setTimeout(function(){t.classList.remove('show')},action?12000:5200)}
   function gotoStep(n){
