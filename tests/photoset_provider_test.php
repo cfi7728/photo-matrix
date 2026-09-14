@@ -1,27 +1,46 @@
 <?php
-// Regression: Der Provider für die FotoSetCard-Erstellung ist der von BKI für
-// Projekt 23 dokumentierte technische Identifier. Seine Schreibweise darf weder
-// an einen Anzeigenamen noch an eine vermeintliche Normalisierung angepasst werden.
-$source = file_get_contents(dirname(__DIR__) . '/public/api.php');
-$documentedProvider = 'Browsercloud';
+// Regression: Projekt 23 verwendet standardmäßig den technischen BKI-Identifier
+// "browsercloud", erlaubt aber installationsspezifische, nicht leere Overrides.
+$configPath = dirname(__DIR__) . '/app/config.php';
+$previousProvider = getenv('BKI_PHOTOSET_PROVIDER');
 
+putenv('BKI_PHOTOSET_PROVIDER');
+$defaultConfig = require $configPath;
+if ($defaultConfig['provider_photoset'] !== 'browsercloud') {
+    throw new Exception('Der Standard-Provider für Projekt 23 ist nicht browsercloud.');
+}
+
+putenv('BKI_PHOTOSET_PROVIDER=custom-provider');
+$overrideConfig = require $configPath;
+if ($overrideConfig['provider_photoset'] !== 'custom-provider') {
+    throw new Exception('BKI_PHOTOSET_PROVIDER wird nicht als Override übernommen.');
+}
+
+putenv('BKI_PHOTOSET_PROVIDER=   ');
+$emptyConfig = require $configPath;
+if ($emptyConfig['provider_photoset'] !== 'browsercloud') {
+    throw new Exception('Ein leerer BKI_PHOTOSET_PROVIDER muss auf browsercloud zurückfallen.');
+}
+
+if ($previousProvider === false) {
+    putenv('BKI_PHOTOSET_PROVIDER');
+} else {
+    putenv('BKI_PHOTOSET_PROVIDER=' . $previousProvider);
+}
+
+$source = file_get_contents(dirname(__DIR__) . '/public/api.php');
 $start = strpos($source, "if (\$action === 'start_photoset')");
 $end = strpos($source, "if (\$action === 'poll_photoset')", $start);
 if ($start === false || $end === false) {
     throw new Exception('Der FotoSet-Start-Workflow wurde nicht gefunden.');
 }
-
 $startPhotoSet = substr($source, $start, $end - $start);
-$pattern = "/->startRun\\(\\s*app_config\\('project_photoset',\\s*23\\),.*?'([^']+)'\\s*,/s";
-if (!preg_match($pattern, $startPhotoSet, $providerMatch)) {
-    throw new Exception('Der an BkiClient::startRun() übergebene FotoSet-Provider wurde nicht gefunden.');
-}
-if ($providerMatch[1] !== $documentedProvider) {
-    throw new Exception('Falscher Projekt-23-Provider: erwartet ' . $documentedProvider . ', erhalten ' . $providerMatch[1] . '.');
+if (strpos($startPhotoSet, "app_config('provider_photoset', 'browsercloud')") === false) {
+    throw new Exception('Der FotoSet-Handler verwendet nicht den konfigurierten Provider mit technischem Standardwert.');
 }
 
-// Zusätzlich den vollständigen von BkiClient erzeugten Run-Payload prüfen.
-// So fällt auch eine spätere Umwandlung zwischen Handler und HTTP-Aufruf auf.
+// Den vollständigen von BkiClient erzeugten Run-Payload für Standard und Override
+// prüfen, damit auch spätere Umwandlungen vor dem HTTP-Aufruf auffallen.
 if (!function_exists('uuid_v4_compat')) {
     function uuid_v4_compat() {
         return '00000000-0000-4000-8000-000000000000';
@@ -43,9 +62,11 @@ class RecordingBkiClient extends BkiClient {
 }
 
 $client = new RecordingBkiClient();
-$client->startRun(23, $providerMatch[1], array(), 'test-draft', array('section_texts' => array()));
-if (!isset($client->recordedBody['provider']) || $client->recordedBody['provider'] !== $documentedProvider) {
-    throw new Exception('Der vollständige Run-Payload enthält nicht den dokumentierten technischen Provider-Identifier.');
+foreach (array($defaultConfig['provider_photoset'], $overrideConfig['provider_photoset']) as $provider) {
+    $client->startRun(23, $provider, array(), 'test-draft', array('section_texts' => array()));
+    if (!isset($client->recordedBody['provider']) || $client->recordedBody['provider'] !== $provider) {
+        throw new Exception('Der vollständige Run-Payload enthält nicht den erwarteten technischen Provider-Identifier.');
+    }
 }
 
-echo "OK: BkiClient::startRun() erhält für Projekt 23 exakt Browsercloud.\n";
+echo "OK: Projekt 23 sendet browsercloud als Standard und unterstützt einen Provider-Override.\n";

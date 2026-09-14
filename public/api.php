@@ -156,10 +156,7 @@ try {
         $attempt = begin_photoset_attempt($flow, $draft);
         $run = $client->startRun(
             app_config('project_photoset', 23),
-            // "Browsercloud" ist der von BKI für Projekt 23 dokumentierte
-            // technische Provider-Identifier (nicht nur der Anzeigename).
-            // Provider ist absichtlich kein konfigurierbarer Deployment-Wert.
-            'Browsercloud',
+            app_config('provider_photoset', 'browsercloud'),
             array(),
             $draft,
             array('section_texts' => array())
