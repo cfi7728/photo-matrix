@@ -1,8 +1,14 @@
 <?php
+$photosetProvider = trim((string)getenv('BKI_PHOTOSET_PROVIDER'));
+if ($photosetProvider === '') {
+    $photosetProvider = 'browsercloud';
+}
+
 return array(
     'api_base' => getenv('BKI_API_BASE') ? getenv('BKI_API_BASE') : 'http://bki.immonia.intern/api/v1',
     'api_key' => getenv('BKI_API_KEY') ? getenv('BKI_API_KEY') : '',
     'project_photoset' => 23,
+    'provider_photoset' => $photosetProvider,
     'project_scene' => 18,
     // Optionaler harter Override, falls die BKI-Workbench mehrere Ressourcenfelder
     // liefert oder eine Installation die Felddefinition anders strukturiert.
