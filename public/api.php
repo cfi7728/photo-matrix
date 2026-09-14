@@ -207,11 +207,20 @@ try {
             json_response(array('ok' => true, 'status' => 'succeeded', 'attempt_id' => $attempt['id'], 'card_created' => !empty($attempt['_card_created']), 'card_reused' => !empty($attempt['_card_reused']), 'images' => public_photoset_attempt_images($attempt), 'state' => public_state($flow)), 200);
         }
         if ($status === 'failed' || $status === 'error' || $status === 'cancelled' || $status === 'canceled') {
+            $errorDetails = run_error_details($run);
             $failure = array(
                 'ok' => false,
                 'status' => $status,
-                'message' => run_error_message($run),
-                'run_id' => $runId
+                'message' => count($errorDetails) ? implode(' | ', $errorDetails) : 'Generierung fehlgeschlagen.',
+                'run_id' => $runId,
+                // Nur Struktur und unkritische Fehlerwerte ausgeben. Damit ist die
+                // tatsächliche Provider-Ursache direkt in den Browser-DevTools
+                // sichtbar, ohne Prompt, API-Key oder Bilddaten offenzulegen.
+                'diagnostics' => array(
+                    'provider' => app_config('provider_photoset', 'browsercloud'),
+                    'errors' => $errorDetails,
+                    'run_shape' => diagnostic_structure($run, 0)
+                )
             );
             $attemptId = $flow->get('active_photoset_attempt_id', null);
             if ($attemptId) $failure['attempt_id'] = $attemptId;
@@ -723,21 +732,28 @@ function run_status($run) {
 }
 
 function run_error_message($run) {
+    $details = run_error_details($run);
+    return count($details) ? implode(' | ', $details) : 'Generierung fehlgeschlagen.';
+}
+
+function run_error_details($run) {
     $limits = array('depth' => 6, 'nodes' => 120, 'length' => 600);
-    $containers = array('error', 'errors', 'provider_response', 'provider_result', 'result', 'output', 'response');
+    $containers = array(
+        'error', 'errors', 'last_error', 'provider_response', 'provider_result',
+        'result', 'output', 'response', 'execution', 'metadata', 'diagnostics'
+    );
 
     // Eine explizite message ist aussagekräftiger als Codes oder sonstige Details.
     $messages = array();
     $seen = 0;
     collect_run_error_values($run, true, $messages, $seen, 0, $limits, $containers, 'run');
-    if (count($messages)) return $messages[0];
+    if (count($messages)) return array($messages[0]);
 
     // Erst wenn keine message existiert, wenige unkritische Fehlerdetails zeigen.
     $details = array();
     $seen = 0;
     collect_run_error_values($run, false, $details, $seen, 0, $limits, $containers, 'run');
-    if (count($details)) return implode(' | ', array_slice(array_values(array_unique($details)), 0, 3));
-    return 'Generierung fehlgeschlagen.';
+    return array_slice(array_values(array_unique($details)), 0, 3);
 }
 
 function collect_run_error_values($node, $messagesOnly, &$found, &$seen, $depth, $limits, $containers, $path) {
@@ -757,13 +773,16 @@ function collect_run_error_values($node, $messagesOnly, &$found, &$seen, $depth,
     }
     if (!is_array($node)) return;
 
-    if ($messagesOnly && array_key_exists('message', $node) && is_scalar($node['message'])) {
-        $safe = sanitize_run_error_value((string)$node['message'], $path . '.message', $limits['length']);
-        if ($safe !== '') $found[] = $safe;
+    if ($messagesOnly) {
+        foreach (array('message', 'error_message', 'failure_message') as $key) {
+            if (!array_key_exists($key, $node) || !is_scalar($node[$key])) continue;
+            $safe = sanitize_run_error_value((string)$node[$key], $path . '.' . $key, $limits['length']);
+            if ($safe !== '') $found[] = $safe;
+        }
     }
 
     if (!$messagesOnly) {
-        foreach (array('detail', 'details', 'reason', 'description', 'error_description', 'code', 'error_code', 'type') as $key) {
+        foreach (array('detail', 'details', 'reason', 'failure_reason', 'description', 'error_description', 'code', 'error_code', 'type') as $key) {
             if (array_key_exists($key, $node) && is_scalar($node[$key])) {
                 $safe = sanitize_run_error_value((string)$node[$key], $path . '.' . $key, $limits['length']);
                 if ($safe !== '') $found[] = $safe;
@@ -980,6 +999,23 @@ function diagnostic_shape($value, $path, $depth) {
     }
     if (is_object($value)) return diagnostic_shape((array)$value, $path, $depth + 1);
     return $value;
+}
+
+function diagnostic_structure($value, $depth) {
+    if ($depth > 7) return '[depth-limit]';
+    if (is_array($value) || is_object($value)) {
+        $out = array(); $count = 0;
+        foreach ((array)$value as $key => $child) {
+            if ($count++ >= 80) { $out['__truncated__'] = true; break; }
+            $out[(string)$key] = diagnostic_structure($child, $depth + 1);
+        }
+        return $out;
+    }
+    if (is_string($value)) return '[string]';
+    if (is_bool($value)) return '[boolean]';
+    if (is_int($value) || is_float($value)) return '[number]';
+    if ($value === null) return '[null]';
+    return '[value]';
 }
 
 function public_scene_results($results) {

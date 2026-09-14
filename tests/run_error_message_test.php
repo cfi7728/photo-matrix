@@ -27,7 +27,7 @@ function load_run_error_function($source, $name) {
     throw new Exception('Funktionsende nicht gefunden: ' . $name);
 }
 
-foreach (array('sanitize_run_error_value', 'collect_run_error_values', 'run_error_message') as $function) {
+foreach (array('sanitize_run_error_value', 'collect_run_error_values', 'run_error_details', 'run_error_message') as $function) {
     load_run_error_function($source, $function);
 }
 
@@ -36,6 +36,9 @@ $cases = array(
     'verschachtelte Provider-Meldung' => array(array('data' => array('result' => array('provider_response' => array('error' => array('message' => 'Provider nicht erreichbar'))))), 'Provider nicht erreichbar'),
     'JSON-kodierte Provider-Antwort' => array(array('data' => array('provider_result' => '{"response":{"error":{"message":"JSON-Providerfehler"}}}')), 'JSON-Providerfehler'),
     'Fehlerliste' => array(array('data' => array('errors' => array(array('detail' => 'Bildformat ungültig'), array('reason' => 'Datei beschädigt')))), 'Bildformat ungültig | Datei beschädigt'),
+    'direktes error_message' => array(array('data' => array('error_message' => 'Browsercloud-Konfiguration fehlt')), 'Browsercloud-Konfiguration fehlt'),
+    'Execution failure_reason' => array(array('data' => array('execution' => array('failure_reason' => 'Upstream-Zeitüberschreitung'))), 'Upstream-Zeitüberschreitung'),
+    'Metadata last_error' => array(array('data' => array('metadata' => array('last_error' => array('message' => 'Provider-Konto gesperrt')))), 'Provider-Konto gesperrt'),
     'generischer Fallback' => array(array('data' => array('status' => 'failed', 'provider_response' => array('prompt_text' => 'vertraulicher Prompt'))), 'Generierung fehlgeschlagen.')
 );
 

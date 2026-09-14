@@ -35,6 +35,8 @@ if ($failureStart === false || $failureEnd === false) {
 $failureHandler = substr($pollHandler, $failureStart, $failureEnd - $failureStart);
 foreach (array(
     "'run_id' => \$runId",
+    "'diagnostics' => array(",
+    "'run_shape' => diagnostic_structure(\$run, 0)",
     "\$failure['attempt_id'] = \$attemptId",
     "\$failure['photoset_generation_id'] = \$generationId"
 ) as $needle) {
