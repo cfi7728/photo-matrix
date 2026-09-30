@@ -28,6 +28,7 @@ export BKI_API_KEY='...'
 export BKI_API_BASE='http://bki.immonia.intern/api/v1'
 # Optional für BKI-Installationen mit abweichendem technischem Identifier:
 export BKI_PHOTOSET_PROVIDER='browsercloud'
+export BKI_SCENE_PROVIDER='vehabi'
 ```
 
 Apache-Beispiel:

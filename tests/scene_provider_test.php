@@ -14,6 +14,12 @@ try {
 }
 
 $previous = getenv('BKI_SCENE_PROVIDER');
+putenv('BKI_SCENE_PROVIDER');
+$config = require dirname(__DIR__) . '/app/config.php';
+if ($config['provider_scene'] !== 'vehabi') throw new Exception('BKI_SCENE_PROVIDER muss standardmäßig vehabi verwenden.');
+putenv('BKI_SCENE_PROVIDER=   ');
+$config = require dirname(__DIR__) . '/app/config.php';
+if ($config['provider_scene'] !== 'vehabi') throw new Exception('Ein leerer BKI_SCENE_PROVIDER muss auf vehabi zurückfallen.');
 putenv('BKI_SCENE_PROVIDER=alternative');
 $config = require dirname(__DIR__) . '/app/config.php';
 if ($config['provider_scene'] !== 'alternative') throw new Exception('BKI_SCENE_PROVIDER wird nicht als Präferenz übernommen.');

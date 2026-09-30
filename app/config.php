@@ -1,6 +1,9 @@
 <?php
 $photosetProvider = trim((string)getenv('BKI_PHOTOSET_PROVIDER'));
 $sceneProvider = trim((string)getenv('BKI_SCENE_PROVIDER'));
+if ($sceneProvider === '') {
+    $sceneProvider = 'vehabi';
+}
 
 return array(
     'api_base' => getenv('BKI_API_BASE') ? getenv('BKI_API_BASE') : 'http://bki.immonia.intern/api/v1',
