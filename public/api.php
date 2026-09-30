@@ -148,9 +148,11 @@ try {
         }
         // Laut API-Vertrag denselben Draft danach erneut aus der Workbench lesen,
         // bevor der Run gestartet wird.
-        $client->workbench(app_config('project_photoset', 23), $draft);
+        $currentWorkbench = $client->workbench(app_config('project_photoset', 23), $draft);
         $photosetUploadPlan = public_upload_plan($uploadFields);
-        $photosetProvider = app_config('provider_photoset', 'browsercloud');
+        $photosetProvider = (new FieldCatalog($currentWorkbench, array(), array()))->resolveProvider(
+            app_config('provider_photoset', ''), 'Projekt 23', 'BKI_PHOTOSET_PROVIDER'
+        );
         PromptValidation::assertValid($client->resolvePrompt(
             app_config('project_photoset', 23),
             PromptValidation::payload($photosetProvider, array(), $draft)
@@ -392,7 +394,7 @@ try {
                 throw new Exception('Projekt 18 / FotoSet-Slot ' . ($i + 1) . ' / Ressourcenfeld #' . $field['field_id'] . ' "' . $field['label'] . '": ' . $e->getMessage() . ' | Felder: ' . resource_diagnostic_text($resourceCatalog));
             }
         }
-        $client->workbench(app_config('project_scene', 18), $draft);
+        $currentWorkbench = $client->workbench(app_config('project_scene', 18), $draft);
         $sceneResourceUploadPlan = public_upload_plan($sceneUploadFields);
 
         $baseValues = array();
@@ -407,7 +409,9 @@ try {
             $baseValues[(string)$bindings['region']] = $location['region'];
         }
 
-        $sceneProvider = app_config('provider_scene', 'vehabi');
+        $sceneProvider = (new FieldCatalog($currentWorkbench, array(), array()))->resolveProvider(
+            app_config('provider_scene', ''), 'Projekt 18', 'BKI_SCENE_PROVIDER'
+        );
         $sceneValues = array();
         foreach ($scenes as $scene) {
             $values = $baseValues;

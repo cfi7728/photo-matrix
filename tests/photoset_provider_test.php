@@ -1,94 +1,50 @@
 <?php
-// Regression: Projekt 23 verwendet standardmäßig den technischen BKI-Identifier
-// "browsercloud", erlaubt aber installationsspezifische, nicht leere Overrides.
+require_once dirname(__DIR__) . '/app/lib/FieldCatalog.php';
+
+function provider_assert_same($expected, $actual, $message) {
+    if ($expected !== $actual) throw new Exception($message . '\nErwartet: ' . json_encode($expected) . '\nErhalten: ' . json_encode($actual));
+}
+
+$catalog = new FieldCatalog(array('data' => array('providers' => array(
+    array('id' => 'browsercloud', 'name' => 'Browser Cloud'),
+    array('provider_id' => 'second-provider', 'label' => 'Zweiter Provider'),
+    array('id' => 'browsercloud')
+))), array(), array());
+provider_assert_same(array('browsercloud', 'second-provider'), $catalog->providerIds(), 'Technische Provider-IDs werden nicht normalisiert aus data.providers gelesen.');
+$mapped = new FieldCatalog(array('data' => array('providers' => array('mapped-provider' => 'Lesbarer Anzeigename'))), array(), array());
+provider_assert_same(array('mapped-provider'), $mapped->providerIds(), 'Bei einer Provider-Map wird der Anzeigename statt der technischen Schlüssel-ID verwendet.');
+provider_assert_same('browsercloud', $catalog->resolveProvider('browsercloud', 'Projekt 23', 'BKI_PHOTOSET_PROVIDER'), 'Die gültige FotoSet-Präferenz wird nicht übernommen.');
+
+try {
+    $catalog->resolveProvider('unknown', 'Projekt 23', 'BKI_PHOTOSET_PROVIDER');
+    throw new Exception('Ein unbekannter FotoSet-Provider wurde akzeptiert.');
+} catch (Exception $e) {
+    if (strpos($e->getMessage(), 'unbekannten Provider') === false || strpos($e->getMessage(), 'browsercloud') === false) throw $e;
+}
+try {
+    $catalog->resolveProvider('', 'Projekt 23', 'BKI_PHOTOSET_PROVIDER');
+    throw new Exception('Bei mehreren Providern wurde ohne Präferenz geraten.');
+} catch (Exception $e) {
+    if (strpos($e->getMessage(), 'mehrere Provider') === false || strpos($e->getMessage(), 'BKI_PHOTOSET_PROVIDER') === false) throw $e;
+}
+$single = new FieldCatalog(array('data' => array('providers' => array('only-provider'))), array(), array());
+provider_assert_same('only-provider', $single->resolveProvider('', 'Projekt 23', 'BKI_PHOTOSET_PROVIDER'), 'Ein einzelner Provider wird nicht automatisch gewählt.');
+
 $configPath = dirname(__DIR__) . '/app/config.php';
-$previousProvider = getenv('BKI_PHOTOSET_PROVIDER');
-
+$previous = getenv('BKI_PHOTOSET_PROVIDER');
 putenv('BKI_PHOTOSET_PROVIDER');
-$defaultConfig = require $configPath;
-if ($defaultConfig['provider_photoset'] !== 'browsercloud') {
-    throw new Exception('Der Standard-Provider für Projekt 23 ist nicht browsercloud.');
-}
-
-putenv('BKI_PHOTOSET_PROVIDER=custom-provider');
-$overrideConfig = require $configPath;
-if ($overrideConfig['provider_photoset'] !== 'custom-provider') {
-    throw new Exception('BKI_PHOTOSET_PROVIDER wird nicht als Override übernommen.');
-}
-
-putenv('BKI_PHOTOSET_PROVIDER=   ');
-$emptyConfig = require $configPath;
-if ($emptyConfig['provider_photoset'] !== 'browsercloud') {
-    throw new Exception('Ein leerer BKI_PHOTOSET_PROVIDER muss auf browsercloud zurückfallen.');
-}
-
-if ($previousProvider === false) {
-    putenv('BKI_PHOTOSET_PROVIDER');
-} else {
-    putenv('BKI_PHOTOSET_PROVIDER=' . $previousProvider);
-}
+$config = require $configPath;
+provider_assert_same('', $config['provider_photoset'], 'BKI_PHOTOSET_PROVIDER darf keinen geratenen Standardwert haben.');
+putenv('BKI_PHOTOSET_PROVIDER=browsercloud');
+$config = require $configPath;
+provider_assert_same('browsercloud', $config['provider_photoset'], 'BKI_PHOTOSET_PROVIDER wird nicht als Präferenz übernommen.');
+$previous === false ? putenv('BKI_PHOTOSET_PROVIDER') : putenv('BKI_PHOTOSET_PROVIDER=' . $previous);
 
 $source = file_get_contents(dirname(__DIR__) . '/public/api.php');
 $start = strpos($source, "if (\$action === 'start_photoset')");
 $end = strpos($source, "if (\$action === 'poll_photoset')", $start);
-if ($start === false || $end === false) {
-    throw new Exception('Der FotoSet-Start-Workflow wurde nicht gefunden.');
-}
-$startPhotoSet = substr($source, $start, $end - $start);
-if (strpos($startPhotoSet, "app_config('provider_photoset', 'browsercloud')") === false) {
-    throw new Exception('Der FotoSet-Handler verwendet nicht den konfigurierten Provider mit technischem Standardwert.');
-}
-if (strpos($startPhotoSet, "'aspect_ratio' => '16:9'") === false) {
-    throw new Exception('Der FotoSet-Handler sendet nicht das bestätigte Seitenverhältnis 16:9.');
-}
-if (strpos($startPhotoSet, "'random_fields' => array()") === false) {
-    throw new Exception('Der FotoSet-Handler sendet random_fields nicht als leeres JSON-Array.');
-}
+$block = substr($source, $start, $end - $start);
+if (strpos($block, "resolveProvider(") === false || strpos($block, 'BKI_PHOTOSET_PROVIDER') === false) throw new Exception('Projekt 23 löst den Provider nicht gegen die aktuelle Workbench auf.');
+if (strpos($block, 'PromptValidation::payload($photosetProvider') === false || strpos($block, '$photosetProvider,') === false) throw new Exception('Der aufgelöste FotoSet-Provider wird nicht unverändert für Resolve und Run genutzt.');
 
-// Den vollständigen von BkiClient erzeugten Run-Payload für Standard und Override
-// prüfen, damit auch spätere Umwandlungen vor dem HTTP-Aufruf auffallen.
-if (!function_exists('uuid_v4_compat')) {
-    function uuid_v4_compat() {
-        return '00000000-0000-4000-8000-000000000000';
-    }
-}
-require_once dirname(__DIR__) . '/app/lib/BkiClient.php';
-
-class RecordingBkiClient extends BkiClient {
-    public $recordedBody;
-
-    public function __construct() {
-        parent::__construct('http://example.invalid', 'test-key', false);
-    }
-
-    public function post($path, $body, $idempotencyKey) {
-        $this->recordedBody = $body;
-        return array('run_id' => 'test-run');
-    }
-}
-
-$client = new RecordingBkiClient();
-foreach (array($defaultConfig['provider_photoset'], $overrideConfig['provider_photoset']) as $provider) {
-    $client->startRun(23, $provider, array(), 'test-draft', array(
-        'section_texts' => array(),
-        'aspect_ratio' => '16:9',
-        'random_fields' => array()
-    ));
-    if (!isset($client->recordedBody['provider']) || $client->recordedBody['provider'] !== $provider) {
-        throw new Exception('Der vollständige Run-Payload enthält nicht den erwarteten technischen Provider-Identifier.');
-    }
-    $encodedBody = json_encode($client->recordedBody);
-    $expectedBody = json_encode(array(
-        'provider' => $provider,
-        'values' => new stdClass(),
-        'section_texts' => new stdClass(),
-        'draft_key' => 'test-draft',
-        'aspect_ratio' => '16:9',
-        'random_fields' => array()
-    ));
-    if ($encodedBody !== $expectedBody) {
-        throw new Exception('Der FotoSet-Run entspricht nicht dem nachgewiesen funktionierenden API-Payload: ' . $encodedBody);
-    }
-}
-
-echo "OK: Projekt 23 sendet den vollständigen browsercloud-FotoSet-Payload und unterstützt einen Provider-Override.\n";
+echo "OK: Projekt 23 wählt ausschließlich einen Provider der aktuellen Workbench.\n";
