@@ -21,6 +21,8 @@ try {
         require_api($client);
         $catalog = load_scene_catalog($client, $flow);
         $snapshot = $catalog->snapshot();
+        $photosetResourceInfo = load_resource_catalog($client, app_config('project_photoset', 23), $flow->get('photoset_draft', uuid_v4_compat()));
+        $snapshot['photoset_upload_plan'] = public_upload_plan(photoset_required_upload_fields($photosetResourceInfo['catalog']));
         $state = public_state($flow);
         if (isset($state['location']['value']) && $state['location']['value'] !== '') {
             $snapshot['options']['scene'] = $catalog->filterScenesByLocation($snapshot['options']['scene'], $state['location']['value']);
@@ -126,13 +128,11 @@ try {
     if ($action === 'start_photoset') {
         require_api($client);
         $uploads = clean_uploads($flow);
-        if (count($uploads) < 1 || count($uploads) > app_config('max_uploads', 4)) {
-            throw new Exception('Bitte mindestens 1 und höchstens 4 Bilder hochladen.');
-        }
         $draft = $flow->get('photoset_draft', uuid_v4_compat());
         $resourceInfo = load_resource_catalog($client, app_config('project_photoset', 23), $draft);
         $catalog = $resourceInfo['catalog'];
-        $uploadFields = resolve_upload_fields($catalog, count($uploads), 'photoset_resource_field_ids', 'photoset_resource_field_id', 'Projekt 23');
+        $uploadFields = photoset_required_upload_fields($catalog);
+        assert_photoset_uploads_complete($uploadFields, count($uploads));
 
         // BKI: pro Ressourcenfeld genau eine Datei. Mehrere Referenzbilder werden
         // deshalb auf verschiedene field_id-Werte verteilt, aber mit demselben

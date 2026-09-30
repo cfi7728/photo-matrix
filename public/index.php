@@ -42,16 +42,19 @@ if (!headers_sent()) {
     <section class="stage active" data-step="1">
         <div class="eyebrow">INPUT NODE // 01</div>
         <h1>Referenzfotos laden</h1>
-        <p class="lead">1–4 Bilder hochladen. Gute Referenzen zeigen Gesicht und Erscheinungsbild klar und ohne starke Verdeckung.</p>
+        <p class="lead" id="upload-requirement">Vier Pflichtaufnahmen hochladen. Gute Referenzen zeigen Gesicht und Erscheinungsbild klar und ohne starke Verdeckung.</p>
 
         <div class="upload-zone" id="drop-zone">
             <input id="photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden>
             <div class="upload-icon">＋</div>
             <strong>Bilder hier ablegen</strong>
-            <span>oder klicken · JPEG / PNG / WEBP · max. 4 Dateien</span>
+            <span id="upload-zone-hint">oder klicken · JPEG / PNG / WEBP · genau 4 Dateien</span>
         </div>
+        <ol id="upload-types" class="upload-types" aria-label="Erforderliche Aufnahmearten">
+            <li>Porträt – Frontalansicht</li><li>Ganzkörper – Frontalansicht</li><li>Porträt – Profilansicht</li><li>Porträt – lächelnd</li>
+        </ol>
         <div id="upload-grid" class="image-grid upload-grid"></div>
-        <div id="upload-status" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
+        <div id="upload-status" class="upload-status" aria-live="polite" aria-atomic="true"></div>
 
         <div class="existing-photoset-choice">
             <div class="existing-photoset-divider"><span>ODER</span></div>
@@ -71,7 +74,7 @@ if (!headers_sent()) {
             <button class="btn ghost" id="open-photoset-history" type="button">Gespeicherte Versuche ansehen →</button>
         </div>
         <div class="actions right">
-            <button class="btn primary" id="generate-photoset" type="button">FotoSet generieren <span>→</span></button>
+            <button class="btn primary" id="generate-photoset" type="button" disabled>FotoSet generieren <span>→</span></button>
         </div>
     </section>
 

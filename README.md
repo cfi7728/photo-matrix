@@ -2,7 +2,7 @@
 
 Mehrstufige, asynchrone Weboberfläche für den beschriebenen BKI-Workflow:
 
-1. 1–4 Referenzbilder hochladen.
+1. Vier in der Workbench als Pflichtfelder definierte Referenzbilder hochladen.
 2. Projekt **23** mit Provider **`browsercloud`** starten und FotoSet-Ergebnisse pollen.
 3. FotoSet lokal je Session zwischenspeichern und vom Benutzer freigeben lassen.
 4. Bei Ablehnung Ausgangsfotos einzeln ersetzen und mit neuem `draft_key` erneut starten.
@@ -192,7 +192,7 @@ Die Diagnose der aktuellen Projekt-23-Workbench zeigt die Ressourcengruppe **„
 3. `85` – Porträt - Profilansicht
 4. `86` – Porträt - lächelnd
 
-Bei 1–4 lokalen Referenzbildern ordnet die App Bild 1..N diesen Feldern in Workbench-Reihenfolge zu. Alle Uploads verwenden denselben `photoset_draft`. Danach wird die Workbench mit demselben Draft erneut geladen und erst anschließend Projekt 23 mit `provider=browsercloud` gestartet. **`browsercloud` ist dabei der technische BKI-Identifier mit exakter Groß-/Kleinschreibung und nicht bloß ein Anzeigename.** Falls eine andere BKI-Installation einen abweichenden Identifier erwartet, kann er über `BKI_PHOTOSET_PROVIDER` überschrieben werden. Ein leerer oder nur aus Leerzeichen bestehender Wert fällt sicher auf `browsercloud` zurück.
+Die App liest alle mit `is_required=true` markierten Ressourcenfelder aus der Workbench und ordnet die vier lokalen Pflichtaufnahmen in Workbench-Reihenfolge eindeutig den Feldern `83`, `84`, `85` und `86` zu. Ein Start mit einem fehlenden Pflichtbild wird unter Nennung der konkreten Aufnahmeart abgewiesen. Alle Uploads verwenden denselben `photoset_draft`. Danach wird die Workbench mit demselben Draft erneut geladen und erst anschließend Projekt 23 mit `provider=browsercloud` gestartet. **`browsercloud` ist dabei der technische BKI-Identifier mit exakter Groß-/Kleinschreibung und nicht bloß ein Anzeigename.** Falls eine andere BKI-Installation einen abweichenden Identifier erwartet, kann er über `BKI_PHOTOSET_PROVIDER` überschrieben werden. Ein leerer oder nur aus Leerzeichen bestehender Wert fällt sicher auf `browsercloud` zurück.
 
 Der Diagnose-Endpunkt liefert jetzt zusätzlich `selected_field_ids` und `upload_plan`. Bei mehreren Ressourcenfeldern ist `selected_field_id: null` normal; maßgeblich ist die Liste `selected_field_ids`.
 
