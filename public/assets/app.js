@@ -215,10 +215,12 @@
     optionFill($('#gender'),o.gender,'Bitte wählen',[{value:'Mann',label:'Mann'},{value:'Frau',label:'Frau'}]);
     optionFill($('#clothing'),o.clothing,'Kleidungsstil aus Projekt 18 wählen');
     optionFill($('#image-style'),o.image_style,'Bildstil aus Projekt 18 wählen');
+    optionFill($('#aspect-ratio'),o.aspect_ratio,'Bildformat aus Projekt 18 wählen');
+    optionFill($('#caption'),o.caption,'Beschriftung aus Projekt 18 wählen');
     optionFill($('#location'),o.location,'Location-Kategorie aus Projekt 18 wählen');
     optionFill($('#region'),o.region,'Region aus Projekt 18 wählen');
     renderScenes(o.scene||[]);renderUploads();renderPhotoSet(App.state.photoset_images);renderPhotoSetHistory();renderFinal(App.state.scene_results);if(!(App.state.scene_results&&App.state.scene_results.length))closeGallery();
-    if(App.state.profile){if(App.state.profile.height)$('#height').value=App.state.profile.height;setValue($('#gender'),App.state.profile.gender);setValue($('#clothing'),App.state.profile.clothing);setValue($('#image-style'),App.state.profile.image_style)}
+    if(App.state.profile){if(App.state.profile.height)$('#height').value=App.state.profile.height;setValue($('#gender'),App.state.profile.gender);setValue($('#clothing'),App.state.profile.clothing);setValue($('#image-style'),App.state.profile.image_style);setValue($('#aspect-ratio'),App.state.profile.aspect_ratio);setValue($('#caption'),App.state.profile.caption)}
     if(App.state.location&&App.state.location.value){setValue($('#location'),App.state.location.value);setValue($('#region'),App.state.location.region);toggleRegion()}
     if(App.state.scene_results&&App.state.scene_results.length===3)gotoStep(6);else if(App.state.photoset_approved&&App.state.scenes&&App.state.scenes.length===3)gotoStep(5);else if(App.state.photoset_approved&&App.state.location&&App.state.location.value)gotoStep(5);else if(App.state.photoset_approved&&App.state.profile&&App.state.profile.height)gotoStep(4);else if(App.state.photoset_approved)gotoStep(3);else if(App.state.photoset_images&&App.state.photoset_images.length)gotoStep(2);else gotoStep(1);
   }

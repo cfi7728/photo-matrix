@@ -31,6 +31,8 @@ return array(
     'binding_location' => getenv('BKI_BINDING_LOCATION') ? getenv('BKI_BINDING_LOCATION') : '',
     'binding_region' => getenv('BKI_BINDING_REGION') ? getenv('BKI_BINDING_REGION') : '',
     'binding_scene' => getenv('BKI_BINDING_SCENE') ? getenv('BKI_BINDING_SCENE') : '',
+    'binding_aspect_ratio' => getenv('BKI_BINDING_ASPECT_RATIO') ? getenv('BKI_BINDING_ASPECT_RATIO') : '',
+    'binding_caption' => getenv('BKI_BINDING_CAPTION') ? getenv('BKI_BINDING_CAPTION') : '',
     'storage' => dirname(__DIR__) . '/storage',
     'max_uploads' => 4,
     'max_file_bytes' => 12 * 1024 * 1024,

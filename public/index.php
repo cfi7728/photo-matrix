@@ -121,6 +121,14 @@ if (!headers_sent()) {
                 <span>Bildstil</span>
                 <select name="image_style" id="image-style" required></select>
             </label>
+            <label class="field">
+                <span>Bildformat</span>
+                <select name="aspect_ratio" id="aspect-ratio" required></select>
+            </label>
+            <label class="field">
+                <span>Bild beschriften</span>
+                <select name="caption" id="caption" required></select>
+            </label>
             <div class="actions full right"><button class="btn primary" type="submit">Location wählen <span>→</span></button></div>
         </form>
     </section>
