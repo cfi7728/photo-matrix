@@ -13,6 +13,7 @@ $config = require __DIR__ . '/config.php';
 require_once __DIR__ . '/lib/BkiClient.php';
 require_once __DIR__ . '/lib/PromptValidation.php';
 require_once __DIR__ . '/lib/FieldCatalog.php';
+require_once __DIR__ . '/lib/PhotosetUploads.php';
 require_once __DIR__ . '/lib/Workflow.php';
 
 function app_config($key, $defaultValue) {
