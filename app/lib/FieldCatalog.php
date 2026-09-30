@@ -160,6 +160,49 @@ class FieldCatalog {
         return $out;
     }
 
+    // Liefert ausschliesslich die technischen IDs aus data.providers der
+    // Workbench. Provider koennen je nach BKI-Version als Strings oder Objekte
+    // geliefert werden; Anzeigenamen werden bewusst nicht als ID interpretiert.
+    public function providerIds() {
+        if (!isset($this->workbench['providers']) || !is_array($this->workbench['providers'])) return array();
+        $out = array();
+        foreach ($this->workbench['providers'] as $key => $provider) {
+            $id = null;
+            // Bei Maps ist der Schlüssel die technische ID und der Wert häufig
+            // nur ein Anzeigename oder ein Konfigurationsobjekt.
+            if (!is_int($key) && !ctype_digit((string)$key)) {
+                $id = trim((string)$key);
+            } else if (is_string($provider) || is_numeric($provider)) {
+                $id = trim((string)$provider);
+            } else if (is_array($provider)) {
+                foreach (array('provider_id', 'providerId', 'technical_id', 'technicalId', 'identifier', 'id', 'key', 'value') as $idKey) {
+                    if (isset($provider[$idKey]) && !is_array($provider[$idKey])) {
+                        $id = trim((string)$provider[$idKey]);
+                        if ($id !== '') break;
+                    }
+                }
+            }
+            // Auch eine nach technischer ID indizierte Map ist ein gaengiges
+            // Format. Numerische Listenindizes sind dagegen niemals Provider.
+            if ($id !== null && $id !== '' && !in_array($id, $out, true)) $out[] = $id;
+        }
+        return $out;
+    }
+
+    public function resolveProvider($preference, $projectLabel, $configName) {
+        $providers = $this->providerIds();
+        $preference = trim((string)$preference);
+        if ($preference !== '') {
+            if (!in_array($preference, $providers, true)) {
+                throw new Exception($projectLabel . ': ' . $configName . ' nennt den unbekannten Provider "' . $preference . '". Workbench-Provider: ' . (count($providers) ? implode(', ', $providers) : 'keine'));
+            }
+            return $preference;
+        }
+        if (count($providers) === 1) return $providers[0];
+        if (count($providers) === 0) throw new Exception($projectLabel . ': Die aktuelle Workbench enthält unter data.providers keinen technischen Provider-Identifier.');
+        throw new Exception($projectLabel . ': Die aktuelle Workbench enthält mehrere Provider (' . implode(', ', $providers) . '). Bitte ' . $configName . ' explizit setzen.');
+    }
+
     public function resourceFieldDiagnostics() {
         $out = array();
         foreach ($this->resourceFields() as $row) {

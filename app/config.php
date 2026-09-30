@@ -1,8 +1,6 @@
 <?php
 $photosetProvider = trim((string)getenv('BKI_PHOTOSET_PROVIDER'));
-if ($photosetProvider === '') {
-    $photosetProvider = 'browsercloud';
-}
+$sceneProvider = trim((string)getenv('BKI_SCENE_PROVIDER'));
 
 return array(
     'api_base' => getenv('BKI_API_BASE') ? getenv('BKI_API_BASE') : 'http://bki.immonia.intern/api/v1',
@@ -20,7 +18,7 @@ return array(
     // Legacy-Override für Installationen mit genau einem Ressourcenfeld.
     'photoset_resource_field_id' => getenv('BKI_PHOTOSET_FIELD_ID') ? getenv('BKI_PHOTOSET_FIELD_ID') : '',
     'scene_resource_field_id' => getenv('BKI_SCENE_FIELD_ID') ? getenv('BKI_SCENE_FIELD_ID') : '',
-    'provider_scene' => 'vehabi',
+    'provider_scene' => $sceneProvider,
     // Optionale Binding-Overrides für Projekt 18. Normalerweise werden diese
     // automatisch aus der Workbench gelesen. Nur setzen, falls die Installation
     // ein abweichendes Workbench-Schema verwendet.
