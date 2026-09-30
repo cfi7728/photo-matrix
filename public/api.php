@@ -150,13 +150,18 @@ try {
         // bevor der Run gestartet wird.
         $client->workbench(app_config('project_photoset', 23), $draft);
         $photosetUploadPlan = public_upload_plan($uploadFields);
+        $photosetProvider = app_config('provider_photoset', 'browsercloud');
+        PromptValidation::assertValid($client->resolvePrompt(
+            app_config('project_photoset', 23),
+            PromptValidation::payload($photosetProvider, array(), $draft)
+        ), 'Projekt 23');
         // Die lokale Generierung wird vor dem externen Start eindeutig markiert.
         // Damit kann selbst eine von BKI wiederverwendete run_id nicht mit einer
         // älteren FotoSetCard derselben Session verwechselt werden.
         $attempt = begin_photoset_attempt($flow, $draft);
         $run = $client->startRun(
             app_config('project_photoset', 23),
-            app_config('provider_photoset', 'browsercloud'),
+            $photosetProvider,
             array(),
             $draft,
             array(
@@ -402,14 +407,27 @@ try {
             $baseValues[(string)$bindings['region']] = $location['region'];
         }
 
-        $runs = array();
+        $sceneProvider = app_config('provider_scene', 'vehabi');
+        $sceneValues = array();
         foreach ($scenes as $scene) {
             $values = $baseValues;
             $values[(string)$bindings['scene']] = $scene;
+            PromptValidation::assertValid($client->resolvePrompt(
+                app_config('project_scene', 18),
+                PromptValidation::payload($sceneProvider, $values, $draft)
+            ), 'Projekt 18 / Szene ' . $scene);
+            $sceneValues[] = array('scene' => $scene, 'values' => $values);
+        }
+
+        // Erst wenn alle drei vollständigen Werte-Sätze gültig sind, darf auch
+        // nur ein einziger Run angelegt werden. So entstehen keine Teilläufe.
+        $runs = array();
+        foreach ($sceneValues as $sceneValue) {
+            $scene = $sceneValue['scene'];
             $run = $client->startRun(
                 app_config('project_scene', 18),
-                app_config('provider_scene', 'vehabi'),
-                $values,
+                $sceneProvider,
+                $sceneValue['values'],
                 $draft,
                 array('section_texts' => array())
             );
@@ -464,7 +482,6 @@ try {
 } catch (Exception $e) {
     json_response(array('ok' => false, 'message' => $e->getMessage()), 400);
 }
-
 
 function load_resource_catalog($client, $projectId, $draftKey) {
     $sources = array();

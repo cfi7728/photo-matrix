@@ -11,6 +11,7 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 $config = require __DIR__ . '/config.php';
 require_once __DIR__ . '/lib/BkiClient.php';
+require_once __DIR__ . '/lib/PromptValidation.php';
 require_once __DIR__ . '/lib/FieldCatalog.php';
 require_once __DIR__ . '/lib/Workflow.php';
 

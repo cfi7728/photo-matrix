@@ -51,7 +51,9 @@ class BkiClient {
     }
 
     public function resolvePrompt($projectId, $payload) {
-        return $this->post('/projects/' . intval($projectId) . '/prompt/resolve', $payload, uuid_v4_compat());
+        // Das Auflösen validiert nur den Prompt und erzeugt keine Ressource.
+        // Deshalb ist für diesen read-only POST kein Idempotency-Key nötig.
+        return $this->post('/projects/' . intval($projectId) . '/prompt/resolve', $payload, null);
     }
 
     public function startRun($projectId, $provider, $values, $draftKey, $extra) {
@@ -212,7 +214,10 @@ class BkiClient {
         $decoded = json_decode($raw, true);
         if ($status < 200 || $status >= 300) {
             $msg = 'BKI HTTP ' . $status;
-            if (is_array($decoded) && isset($decoded['error']['message'])) {
+            if ($status === 422 && is_array($decoded)) {
+                $details = self::validationErrorDetails($decoded);
+                if (count($details)) $msg .= ': ' . implode(' | ', $details);
+            } else if (is_array($decoded) && isset($decoded['error']['message'])) {
                 $msg .= ': ' . $decoded['error']['message'];
             }
             if (is_array($decoded) && isset($decoded['request_id'])) {
@@ -224,6 +229,43 @@ class BkiClient {
             throw new Exception('BKI lieferte kein gültiges JSON.');
         }
         return $decoded;
+    }
+
+    public static function validationErrorDetails($response) {
+        $found = array();
+        self::collectValidationErrors($response, $found, 0);
+        return array_values(array_unique($found));
+    }
+
+    private static function collectValidationErrors($node, &$found, $depth) {
+        if (!is_array($node) || $depth > 8) return;
+        $parts = array();
+        foreach (array('parameter', 'code', 'expected_type', 'message') as $key) {
+            if (!array_key_exists($key, $node)) continue;
+            $value = $node[$key];
+            if (is_array($value)) $value = implode('.', array_filter(array_map('strval', $value), 'strlen'));
+            if (!is_scalar($value)) continue;
+            $value = self::sanitizeDiagnosticValue((string)$value);
+            if ($value !== '') $parts[] = $key . '=' . $value;
+        }
+        if (count($parts)) $found[] = implode(', ', $parts);
+        foreach ($node as $key => $value) {
+            // Nur bekannte Fehlercontainer und numerische Listen durchlaufen.
+            // Insbesondere niemals einen eventuell mitgelieferten request/body-
+            // Knoten spiegeln, da dieser Eingabewerte enthalten kann.
+            $isListItem = is_int($key) || ctype_digit((string)$key);
+            $isErrorContainer = in_array((string)$key, array('error', 'errors', 'detail', 'validation_errors'), true);
+            if (is_array($value) && ($isListItem || $isErrorContainer)) {
+                self::collectValidationErrors($value, $found, $depth + 1);
+            }
+        }
+    }
+
+    private static function sanitizeDiagnosticValue($value) {
+        $value = preg_replace('/[\x00-\x1F\x7F]+/u', ' ', $value);
+        $value = preg_replace('/\s+/u', ' ', trim($value));
+        if (strlen($value) > 300) $value = substr($value, 0, 297) . '...';
+        return $value;
     }
 
     private function requestBinary($path) {
