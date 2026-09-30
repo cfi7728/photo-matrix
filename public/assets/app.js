@@ -264,9 +264,16 @@
     if(App.state.scenes&&App.state.scenes.length){$$('#scene-options input').forEach(function(input){input.checked=App.state.scenes.some(function(value){return String(value)===String(input.value)})});sceneCount()}
     if(App.state.scene_results&&App.state.scene_results.length===3)gotoStep(6);else if(App.state.photoset_approved&&App.state.scenes&&App.state.scenes.length===3)gotoStep(5);else if(App.state.photoset_approved&&App.state.location&&App.state.location.value)gotoStep(5);else if(App.state.photoset_approved&&App.state.profile&&App.state.profile.height)gotoStep(4);else if(App.state.photoset_approved)gotoStep(3);else if(App.state.photoset_images&&App.state.photoset_images.length)gotoStep(2);else gotoStep(1);
   }
-  function configureUi(data){populateUiCatalog(data.ui);applyWorkflowState(data.state)}
-  function setBootstrapStatus(mode,message){var box=$('#bootstrap-status');box.className='bootstrap-status '+mode;$('#bootstrap-status-message').textContent=message;$('#bootstrap-retry').hidden=mode!=='error'}
-  function loadBootstrap(){catalogControlsEnabled(false);setBootstrapStatus('loading','Konfiguration wird geladen …');$('#system-label').textContent='CONFIG LOADING';return api('bootstrap').then(function(data){configureUi(data);setBootstrapStatus('ready','Konfiguration geladen');$('#system-label').textContent='SYSTEM READY';return data}).catch(function(error){catalogControlsEnabled(false);setBootstrapStatus('error','Konfiguration konnte nicht geladen werden: '+error.message);$('#system-label').textContent='CONFIG REQUIRED';throw error})}
+  function configureUi(data){
+    populateUiCatalog(data.ui);
+    try{applyWorkflowState(data.state);return true}catch(error){
+      // The catalog is already valid at this point. A malformed legacy session
+      // must not disable every select just because its state cannot be restored.
+      App.state=data.state||{};updateStepper();consoleErrorDetails('restore_workflow_state',{error:error,state:App.state});return false;
+    }
+  }
+  function setBootstrapStatus(mode,message){var box=$('#bootstrap-status');box.className='bootstrap-status '+mode;$('#bootstrap-status-message').textContent=message;$('#bootstrap-retry').hidden=mode!=='error'&&mode!=='warning'}
+  function loadBootstrap(){catalogControlsEnabled(false);setBootstrapStatus('loading','Konfiguration wird geladen …');$('#system-label').textContent='CONFIG LOADING';return api('bootstrap').then(function(data){var stateRestored=configureUi(data);if(stateRestored){setBootstrapStatus('ready','Konfiguration geladen');$('#system-label').textContent='SYSTEM READY'}else{catalogControlsEnabled(true);setBootstrapStatus('warning','Auswahl ist bereit. Der bisherige Workflow-Stand konnte nicht vollständig wiederhergestellt werden.');$('#system-label').textContent='SYSTEM READY'}return data}).catch(function(error){catalogControlsEnabled(false);setBootstrapStatus('error','Konfiguration konnte nicht geladen werden: '+error.message);$('#system-label').textContent='CONFIG REQUIRED';throw error})}
   function setValue(el,val){if(val===undefined||val===null)return;Array.prototype.some.call(el.options,function(o){if(String(o.value)===String(val)){el.value=o.value;return true}return false})}
 
   function toggleRegion(){var txt=findLabel($('#location'))+' '+$('#location').value;var outside=isOutside(txt);$('#region-wrap').classList.toggle('hidden',!outside);$('#region').required=outside;$('#category-hint').textContent=outside?'Gruppe A aktiv · für Außenaufnahmen ist zusätzlich eine Region erforderlich.':'Szenengruppe wird anhand dieser Kategorie gefiltert.';}
