@@ -31,15 +31,16 @@ class BkiClient {
         if ($draftKey) {
             $path .= '?draft_key=' . rawurlencode($draftKey);
         }
+        $path .= (strpos($path, '?') === false ? '?' : '&') . '_fresh=' . rawurlencode($this->freshKey());
         return $this->get($path);
     }
 
     public function optionLists($projectId) {
-        return $this->get('/projects/' . intval($projectId) . '/option-lists');
+        return $this->get('/projects/' . intval($projectId) . '/option-lists?_fresh=' . rawurlencode($this->freshKey()));
     }
 
     public function dynamicFields($projectId) {
-        return $this->get('/projects/' . intval($projectId) . '/dynamic-fields');
+        return $this->get('/projects/' . intval($projectId) . '/dynamic-fields?_fresh=' . rawurlencode($this->freshKey()));
     }
 
     public function dynamicConfiguration($projectId) {
@@ -179,6 +180,12 @@ class BkiClient {
         // values und section_texts sind laut API Maps. Als Objekt erzwingen,
         // damit auch numerische Binding-IDs nie versehentlich als JSON-Array enden.
         return (object)$value;
+    }
+
+    private function freshKey() {
+        // Auch vor Proxies, die Cache-Control ignorieren, stets den aktuellen
+        // Projektstand mit seinen Optionslisten und Binding-IDs abrufen.
+        return str_replace('.', '-', uniqid('', true));
     }
 
     private function request($method, $path, $body, $extraHeaders, $multipart) {

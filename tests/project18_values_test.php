@@ -15,9 +15,14 @@ $catalog = new FieldCatalog(array('data' => array('fields' => array(
     array('label' => 'Bild beschriften', 'binding_id' => 'wb-caption', 'type' => 'radio', 'options' => array('an', 'aus'))
 ))), array(), array());
 $snapshot = $catalog->snapshot();
-assert_same('wb-height', $snapshot['bindings']['height'], 'Das Workbench-Binding für Körpergröße hat keinen Vorrang.');
-assert_same('wb-aspect', $snapshot['bindings']['aspect_ratio'], 'Das Workbench-Binding für Bildformat hat keinen Vorrang.');
-assert_same('wb-caption', $snapshot['bindings']['caption'], 'Das Workbench-Binding für Bild beschriften hat keinen Vorrang.');
+assert_same(2879, $snapshot['bindings']['height'], 'Ein UUID/API-Alias darf die numerische Binding-ID für Körpergröße nicht ersetzen.');
+assert_same(2885, $snapshot['bindings']['aspect_ratio'], 'Ein UUID/API-Alias darf die numerische Binding-ID für Bildformat nicht ersetzen.');
+assert_same(2887, $snapshot['bindings']['caption'], 'Ein UUID/API-Alias darf die numerische Binding-ID für Bild beschriften nicht ersetzen.');
+
+$numeric = new FieldCatalog(array('data' => array('fields' => array(
+    array('label' => 'Körpergröße', 'binding_id' => 9001, 'type' => 'number')
+))), array(), array());
+assert_same(9001, $numeric->snapshot()['bindings']['height'], 'Eine aktuelle numerische Workbench-Binding-ID muss Vorrang haben.');
 
 // Nur ohne semantischen Workbench-Treffer werden die Vertrags-IDs verwendet.
 $fallback = (new FieldCatalog(array(), array(), array()))->snapshot();
@@ -54,4 +59,4 @@ if (strpos($api, "\$baseValues[(string)\$bindings['region']]") === false || strp
     throw new Exception('Region oder Szene fehlt im produktiven Projekt-18-values-Aufbau.');
 }
 
-echo "OK: Projekt 18 übermittelt vollständige values inklusive 2885 und 2887; Workbench-Bindings haben Vorrang.\n";
+echo "OK: Projekt 18 übermittelt vollständige values inklusive 2885 und 2887; nur numerische Workbench-Bindings haben Vorrang.\n";
