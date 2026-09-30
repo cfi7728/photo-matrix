@@ -26,7 +26,7 @@ assert.match(loadBootstrap, /catalogControlsEnabled\(false\)/);
 assert.match(loadBootstrap, /setBootstrapStatus\('error'/);
 assert.match(loadBootstrap, /throw error/);
 assert.doesNotMatch(loadBootstrap, /api\('status'\)/);
-assert.match(source, /bootstrap-retry'\)\.onclick=function\(\)\{loadBootstrap\(\)/);
+assert.match(source, /bootstrap-retry'\)\.addEventListener\('click',function\(\)\{loadBootstrap\(\)/);
 
 // Retry success: the same bootstrap request rebuilds the catalog first, then
 // reapplies every persisted workflow concern before revealing usable controls.
@@ -37,12 +37,13 @@ assert.match(populateUiCatalog, /validCatalogOptions/);
 assert.match(populateUiCatalog, /catalogControlsEnabled\(true\)/);
 assert.match(configureUi, /try\{applyWorkflowState\(data\.state\);return true\}catch\(error\)/);
 assert.match(configureUi, /updateStepper\(\);consoleErrorDetails\('restore_workflow_state'/);
-assert.match(loadBootstrap, /if\(stateRestored\)/);
-assert.match(loadBootstrap, /else\{catalogControlsEnabled\(true\);setBootstrapStatus\('warning'/);
+assert.match(loadBootstrap, /stateRestored\?'ready':'warning'/);
+assert.match(loadBootstrap, /catalogControlsEnabled\(true\)/);
+assert.match(loadBootstrap, /setFormStatus\('error','Formulare gesperrt:/);
 assert.match(applyWorkflowState, /App\.state=state/);
 assert.match(applyWorkflowState, /setValue\(\$\('#location'\)/);
 assert.match(applyWorkflowState, /setValue\(\$\('#region'\)/);
-assert.match(applyWorkflowState, /toggleRegion\(\)/);
+assert.match(applyWorkflowState, /toggleRegion\(true\)/);
 assert.match(applyWorkflowState, /App\.state\.scenes/);
 assert.match(applyWorkflowState, /gotoStep\(/);
 

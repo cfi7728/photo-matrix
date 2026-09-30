@@ -49,17 +49,17 @@ if (!headers_sent()) {
         <h1>Referenzfotos laden</h1>
         <p class="lead" id="upload-requirement">Vier Pflichtaufnahmen hochladen. Gute Referenzen zeigen Gesicht und Erscheinungsbild klar und ohne starke Verdeckung.</p>
 
-        <div class="upload-zone" id="drop-zone">
-            <input id="photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden>
+        <div class="upload-zone" id="drop-zone" tabindex="0" role="button" aria-controls="photo-input" aria-describedby="upload-zone-hint upload-error-summary">
             <div class="upload-icon">＋</div>
             <strong>Bilder hier ablegen</strong>
-            <span id="upload-zone-hint">oder klicken · JPEG / PNG / WEBP · genau 4 Dateien</span>
+            <span id="upload-zone-hint">oder mit Eingabetaste den Dateidialog öffnen · JPEG / PNG / WEBP · genau 4 Dateien</span>
         </div>
-        <ol id="upload-types" class="upload-types" aria-label="Erforderliche Aufnahmearten">
-            <li>Porträt – Frontalansicht</li><li>Ganzkörper – Frontalansicht</li><li>Porträt – Profilansicht</li><li>Porträt – lächelnd</li>
-        </ol>
-        <div id="upload-grid" class="image-grid upload-grid"></div>
-        <div id="upload-status" class="upload-status" aria-live="polite" aria-atomic="true"></div>
+        <label class="file-button" for="photo-input">Dateien auswählen</label>
+        <input id="photo-input" name="photos[]" class="file-control" type="file" accept="image/jpeg,image/png,image/webp" multiple aria-describedby="upload-zone-hint upload-error-summary">
+        <ol id="upload-types" class="upload-types" aria-label="Vier erforderliche Aufnahmearten"><li>Porträt – Frontalansicht</li><li>Ganzkörper – Frontalansicht</li><li>Porträt – Profilansicht</li><li>Porträt – lächelnd</li></ol>
+        <div id="upload-grid" class="image-grid upload-grid" aria-label="Upload-Slots"></div>
+        <div id="upload-error-summary" class="form-error-summary" role="alert" aria-live="assertive" aria-atomic="true" hidden></div>
+        <div id="upload-status" class="upload-status" role="status" aria-live="polite" aria-atomic="true"></div>
 
         <div class="existing-photoset-choice">
             <div class="existing-photoset-divider"><span>ODER</span></div>
@@ -112,31 +112,15 @@ if (!headers_sent()) {
         <div class="eyebrow">PERSON PROFILE // 03</div>
         <h1>Person & Bildsprache</h1>
         <p class="lead">Diese Angaben werden zusammen mit dem freigegebenen FotoSet an die Szenengenerierung übergeben.</p>
-        <form id="profile-form" class="form-grid" autocomplete="off">
-            <label class="field">
-                <span>Größe in cm</span>
-                <input name="height" id="height" type="number" min="100" max="230" step="1" placeholder="z. B. 182" required>
-            </label>
-            <label class="field">
-                <span>Mann oder Frau</span>
-                <select name="gender" id="gender" required disabled><option>Konfiguration wird geladen …</option></select>
-            </label>
-            <label class="field full">
-                <span>Stil der Kleidung</span>
-                <select name="clothing" id="clothing" required disabled><option>Konfiguration wird geladen …</option></select>
-            </label>
-            <label class="field full">
-                <span>Bildstil</span>
-                <select name="image_style" id="image-style" required disabled><option>Konfiguration wird geladen …</option></select>
-            </label>
-            <label class="field">
-                <span>Bildformat</span>
-                <select name="aspect_ratio" id="aspect-ratio" required disabled><option>Konfiguration wird geladen …</option></select>
-            </label>
-            <label class="field">
-                <span>Bild beschriften</span>
-                <select name="caption" id="caption" required disabled><option>Konfiguration wird geladen …</option></select>
-            </label>
+        <form id="profile-form" class="form-grid is-loading" autocomplete="off" novalidate aria-describedby="profile-form-status profile-form-error">
+            <p id="profile-form-status" class="form-status" role="status" aria-live="polite">Profiloptionen werden geladen …</p>
+            <div id="profile-form-error" class="form-error-summary full" role="alert" aria-live="assertive" hidden></div>
+            <div class="field"><label for="height">Größe in cm</label><input name="height" id="height" type="number" min="100" max="230" step="1" placeholder="z. B. 182" required disabled aria-describedby="height-hint height-error" aria-invalid="false"><small id="height-hint">Zulässig sind 100 bis 230 cm.</small><span id="height-error" class="field-error" aria-live="polite"></span></div>
+            <div class="field"><label for="gender">Geschlecht</label><select name="gender" id="gender" required disabled aria-describedby="gender-hint gender-error" aria-invalid="false"><option>Konfiguration wird geladen …</option></select><small id="gender-hint">Wähle einen Eintrag aus dem Katalog.</small><span id="gender-error" class="field-error" aria-live="polite"></span></div>
+            <div class="field full"><label for="clothing">Stil der Kleidung</label><select name="clothing" id="clothing" required disabled aria-describedby="clothing-hint clothing-error" aria-invalid="false"><option>Konfiguration wird geladen …</option></select><small id="clothing-hint">Bestimmt die Kleidung in allen Szenen.</small><span id="clothing-error" class="field-error" aria-live="polite"></span></div>
+            <div class="field full"><label for="image-style">Bildstil</label><select name="image_style" id="image-style" required disabled aria-describedby="image-style-hint image-style-error" aria-invalid="false"><option>Konfiguration wird geladen …</option></select><small id="image-style-hint">Bestimmt die visuelle Bildsprache.</small><span id="image-style-error" class="field-error" aria-live="polite"></span></div>
+            <div class="field"><label for="aspect-ratio">Bildformat</label><select name="aspect_ratio" id="aspect-ratio" required disabled aria-describedby="aspect-ratio-hint aspect-ratio-error" aria-invalid="false"><option>Konfiguration wird geladen …</option></select><small id="aspect-ratio-hint">Format der Ergebnisbilder.</small><span id="aspect-ratio-error" class="field-error" aria-live="polite"></span></div>
+            <div class="field"><label for="caption">Bild beschriften</label><select name="caption" id="caption" required disabled aria-describedby="caption-hint caption-error" aria-invalid="false"><option>Konfiguration wird geladen …</option></select><small id="caption-hint">Steuert die Beschriftung.</small><span id="caption-error" class="field-error" aria-live="polite"></span></div>
             <div class="actions full right"><button class="btn primary" id="profile-next" type="submit" disabled>Location wählen <span>→</span></button></div>
         </form>
     </section>
@@ -145,15 +129,11 @@ if (!headers_sent()) {
         <div class="eyebrow">LOCATION MATRIX // 04</div>
         <h1>Wo findet das Shooting statt?</h1>
         <p class="lead">Die Location-Kategorie steuert, welche Szenengruppe im nächsten Schritt angeboten wird.</p>
-        <form id="location-form" class="form-grid" autocomplete="off">
-            <label class="field full">
-                <span>Location-Kategorie</span>
-                <select name="location" id="location" required disabled><option>Konfiguration wird geladen …</option></select>
-            </label>
-            <label class="field full hidden" id="region-wrap">
-                <span>Region für Außenaufnahmen</span>
-                <select name="region" id="region" disabled><option>Konfiguration wird geladen …</option></select>
-            </label>
+        <form id="location-form" class="form-grid is-loading" autocomplete="off" novalidate aria-describedby="location-form-status location-form-error">
+            <p id="location-form-status" class="form-status" role="status" aria-live="polite">Location-Optionen werden geladen …</p>
+            <div id="location-form-error" class="form-error-summary full" role="alert" aria-live="assertive" hidden></div>
+            <div class="field full"><label for="location">Location-Kategorie</label><select name="location" id="location" required disabled aria-describedby="location-hint location-error" aria-invalid="false"><option>Konfiguration wird geladen …</option></select><small id="location-hint">Die Kategorie bestimmt die verfügbaren Szenen.</small><span id="location-error" class="field-error" aria-live="polite"></span></div>
+            <div class="field full hidden" id="region-wrap"><label for="region">Region für Außenaufnahmen</label><select name="region" id="region" disabled aria-describedby="region-hint region-error" aria-invalid="false"><option>Konfiguration wird geladen …</option></select><small id="region-hint">Nur bei Außenaufnahmen erforderlich.</small><span id="region-error" class="field-error" aria-live="polite"></span></div>
             <div class="category-hint full" id="category-hint">Szenenfilter wird nach Auswahl automatisch aktiviert.</div>
             <div class="actions full right"><button class="btn primary" id="location-next" type="submit" disabled>Szenen auswählen <span>→</span></button></div>
         </form>
@@ -163,8 +143,11 @@ if (!headers_sent()) {
         <div class="eyebrow">SCENE SELECTOR // 05</div>
         <h1>Genau 3 Szenen auswählen</h1>
         <p class="lead">Es werden nur Szenen aus der zur Location passenden Gruppe angeboten: A Außen · B Büro · C Zuhause beim Kunden · D Im Objekt · E Erweitert.</p>
-        <form id="scenes-form">
-            <div id="scene-options" class="scene-grid"></div>
+        <form id="scenes-form" class="is-loading" novalidate aria-describedby="scenes-form-status scenes-limit scenes-form-error">
+            <p id="scenes-form-status" class="form-status" role="status" aria-live="polite">Szenen werden geladen …</p>
+            <p id="scenes-limit" class="field-hint">Wähle genau drei Szenen. Nach der dritten Auswahl bleiben gewählte Szenen abwählbar.</p>
+            <div id="scenes-form-error" class="form-error-summary" role="alert" aria-live="assertive" hidden></div>
+            <fieldset id="scene-fieldset" disabled><legend class="sr-only">Szenenauswahl, genau drei Optionen</legend><div id="scene-options" class="scene-grid"></div></fieldset>
             <div class="selection-meter">
                 <span id="scene-count" aria-live="polite" aria-atomic="true">0 / 3 gewählt</span>
                 <div class="selection-meter-segments" id="scene-meter" aria-hidden="true">
