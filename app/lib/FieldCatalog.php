@@ -386,8 +386,22 @@ class FieldCatalog {
         foreach ($defs as $name => $def) {
             $legacy = $this->bindingFor($def[0]);
             $option = $def[1] ? $this->optionBindingFor($def[0]) : null;
-            $resolved = ($option !== null && $option !== '') ? $option : $legacy;
-            $fallbacks = array('aspect_ratio' => 2885, 'caption' => 2887);
+            $resolved = $this->resolvedBindingFor($def[0], $def[1]);
+            // Projekt 18 hat einen dokumentierten, zusammenhaengenden Binding-
+            // Vertrag. Einige Workbench-Versionen liefern zwar Optionslisten,
+            // aber keine binding_id-Zuordnung dazu. In diesem Fall darf der
+            // Szenenstart nicht mit einem fehlenden Binding abbrechen.
+            $fallbacks = array(
+                'height' => 2879,
+                'gender' => 2880,
+                'clothing' => 2881,
+                'image_style' => 2882,
+                'location' => 2883,
+                'region' => 2884,
+                'aspect_ratio' => 2885,
+                'scene' => 2886,
+                'caption' => 2887
+            );
             $usedContractFallback = ($resolved === null || $resolved === '') && isset($fallbacks[$name]);
             if ($usedContractFallback) $resolved = $fallbacks[$name];
             $list = $def[1] ? $this->bestOptionListForTerms($def[0]) : null;
@@ -423,22 +437,25 @@ class FieldCatalog {
     }
 
     public function snapshot() {
-        $aspectRatio = $this->resolvedBindingFor(array('bildformat', 'bild format', 'seitenverhältnis', 'seitenverhaeltnis', 'aspect_ratio', 'aspect ratio'), true);
-        $caption = $this->resolvedBindingFor(array('bild beschriften', 'bildbeschriftung', 'beschriften', 'caption', 'image caption'), true);
+        $resolvedBindings = array(
+            'height' => $this->resolvedBindingFor(array('körpergröße', 'koerpergroesse', 'körpergröße cm', 'größe', 'groesse', 'height_cm', 'body height', 'height', 'cm'), false),
+            'gender' => $this->resolvedBindingFor(array('geschlecht', 'gender', 'sex', 'mann frau', 'mann', 'frau'), true),
+            'clothing' => $this->resolvedBindingFor(array('kleidungsstil', 'kleidung', 'outfit', 'clothing', 'wardrobe'), true),
+            'image_style' => $this->resolvedBindingFor(array('bildstil', 'fotostil', 'image_style', 'image style', 'photo style'), true),
+            'location' => $this->resolvedBindingFor(array('location-kategorie', 'location kategorie', 'location_category', 'ortskategorie', 'location'), true),
+            'region' => $this->resolvedBindingFor(array('region'), true),
+            'aspect_ratio' => $this->resolvedBindingFor(array('bildformat', 'bild format', 'seitenverhältnis', 'seitenverhaeltnis', 'aspect_ratio', 'aspect ratio'), true),
+            'scene' => $this->resolvedBindingFor(array('bildszene', 'bild szene', 'scene', 'szene'), true),
+            'caption' => $this->resolvedBindingFor(array('bild beschriften', 'bildbeschriftung', 'beschriften', 'caption', 'image caption'), true)
+        );
+        $contractBindings = array('height' => 2879, 'gender' => 2880, 'clothing' => 2881, 'image_style' => 2882, 'location' => 2883, 'region' => 2884, 'aspect_ratio' => 2885, 'scene' => 2886, 'caption' => 2887);
+        foreach ($contractBindings as $name => $binding) {
+            if ($resolvedBindings[$name] === null || $resolvedBindings[$name] === '') $resolvedBindings[$name] = $binding;
+        }
         return array(
-            'bindings' => array(
-                'height' => $this->resolvedBindingFor(array('körpergröße', 'koerpergroesse', 'körpergröße cm', 'größe', 'groesse', 'height_cm', 'body height', 'height', 'cm'), false),
-                'gender' => $this->resolvedBindingFor(array('geschlecht', 'gender', 'sex', 'mann frau', 'mann', 'frau'), true),
-                'clothing' => $this->resolvedBindingFor(array('kleidungsstil', 'kleidung', 'outfit', 'clothing', 'wardrobe'), true),
-                'image_style' => $this->resolvedBindingFor(array('bildstil', 'fotostil', 'image_style', 'image style', 'photo style'), true),
-                'location' => $this->resolvedBindingFor(array('location-kategorie', 'location kategorie', 'location_category', 'ortskategorie', 'location'), true),
-                'region' => $this->resolvedBindingFor(array('region'), true),
-                'scene' => $this->resolvedBindingFor(array('bildszene', 'bild szene', 'scene', 'szene'), true),
-                // Nur wenn die Workbench keine semantische Zuordnung liefert, gelten
-                // die dokumentierten Projekt-18-IDs als vertraglicher Fallback.
-                'aspect_ratio' => ($aspectRatio !== null && $aspectRatio !== '') ? $aspectRatio : 2885,
-                'caption' => ($caption !== null && $caption !== '') ? $caption : 2887
-            ),
+            // Die Workbench hat Vorrang; fehlende Zuordnungen werden aus dem
+            // dokumentierten Projekt-18-Vertrag 2879..2887 vervollstaendigt.
+            'bindings' => $resolvedBindings,
             'options' => array(
                 'gender' => $this->optionsFor(array('geschlecht', 'gender', 'mann', 'frau')),
                 'clothing' => $this->optionsFor(array('kleidung', 'kleidungsstil', 'outfit', 'clothing')),

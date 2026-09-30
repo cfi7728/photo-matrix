@@ -48,7 +48,7 @@ Apache-Beispiel:
 
 ## Wichtige Laufzeit-Erkennung
 
-Die App hardcodiert keine BKI-Binding-IDs. `FieldCatalog.php` liest Workbench, Optionslisten und Dynamic Fields aus Projekt 18/23 und versucht die benötigten Felder semantisch anhand ihrer API-Metadaten zuzuordnen.
+`FieldCatalog.php` liest Workbench, Optionslisten und Dynamic Fields aus Projekt 18/23 und ordnet die benötigten Felder semantisch anhand ihrer API-Metadaten zu. Für Projekt 18 haben erkannte Workbench-Bindings immer Vorrang; liefert eine BKI-Version keine Zuordnung, werden fehlende Werte aus dem dokumentierten Binding-Vertrag 2879–2887 ergänzt.
 
 Falls die tatsächliche Workbench-Bezeichnung stark von `Größe`, `Geschlecht`, `Kleidung`, `Bildstil`, `Location`, `Region`, `Bildszene` abweicht, sollte die Termliste in `FieldCatalog::snapshot()` einmal an die realen Feldnamen angepasst werden. Das ist absichtlich zentralisiert.
 

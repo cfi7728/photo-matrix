@@ -10,17 +10,19 @@ function assert_same($expected, $actual, $message) {
 // Eine aktuelle Workbench-Zuordnung muss stets stärker sein als die im Vertrag
 // dokumentierte numerische ID.
 $catalog = new FieldCatalog(array('data' => array('fields' => array(
+    array('label' => 'Körpergröße', 'binding_id' => 'wb-height', 'type' => 'number'),
     array('label' => 'Bildformat', 'binding_id' => 'wb-aspect', 'type' => 'select', 'options' => array('Querformat 16:9', 'Hochformat 9:16', 'Quadrat 1:1')),
     array('label' => 'Bild beschriften', 'binding_id' => 'wb-caption', 'type' => 'radio', 'options' => array('an', 'aus'))
 ))), array(), array());
 $snapshot = $catalog->snapshot();
+assert_same('wb-height', $snapshot['bindings']['height'], 'Das Workbench-Binding für Körpergröße hat keinen Vorrang.');
 assert_same('wb-aspect', $snapshot['bindings']['aspect_ratio'], 'Das Workbench-Binding für Bildformat hat keinen Vorrang.');
 assert_same('wb-caption', $snapshot['bindings']['caption'], 'Das Workbench-Binding für Bild beschriften hat keinen Vorrang.');
 
 // Nur ohne semantischen Workbench-Treffer werden die Vertrags-IDs verwendet.
 $fallback = (new FieldCatalog(array(), array(), array()))->snapshot();
-assert_same(2885, $fallback['bindings']['aspect_ratio'], 'Bildformat fällt nicht auf Vertrags-ID 2885 zurück.');
-assert_same(2887, $fallback['bindings']['caption'], 'Bild beschriften fällt nicht auf Vertrags-ID 2887 zurück.');
+$contractBindings = array('height' => 2879, 'gender' => 2880, 'clothing' => 2881, 'image_style' => 2882, 'location' => 2883, 'region' => 2884, 'aspect_ratio' => 2885, 'scene' => 2886, 'caption' => 2887);
+assert_same($contractBindings, $fallback['bindings'], 'Unvollständige Workbench fällt nicht auf den vollständigen Projekt-18-Vertrag zurück.');
 assert_same(array('Querformat 16:9', 'Hochformat 9:16', 'Quadrat 1:1'), array_column($fallback['options']['aspect_ratio'], 'value'), 'Die vertraglichen Bildformatwerte fehlen.');
 assert_same(array('an', 'aus'), array_column($fallback['options']['caption'], 'value'), 'Die vertraglichen Beschriftungswerte fehlen.');
 
