@@ -335,13 +335,18 @@ class FieldCatalog {
             'image_style' => array(array('bildstil', 'fotostil', 'image_style', 'image style', 'photo style'), true),
             'location' => array(array('location-kategorie', 'location kategorie', 'location_category', 'ortskategorie', 'location'), true),
             'region' => array(array('region'), true),
-            'scene' => array(array('bildszene', 'bild szene', 'scene', 'szene'), true)
+            'scene' => array(array('bildszene', 'bild szene', 'scene', 'szene'), true),
+            'aspect_ratio' => array(array('bildformat', 'bild format', 'seitenverhältnis', 'seitenverhaeltnis', 'aspect_ratio', 'aspect ratio'), true),
+            'caption' => array(array('bild beschriften', 'bildbeschriftung', 'beschriften', 'caption', 'image caption'), true)
         );
         $out = array();
         foreach ($defs as $name => $def) {
             $legacy = $this->bindingFor($def[0]);
             $option = $def[1] ? $this->optionBindingFor($def[0]) : null;
             $resolved = ($option !== null && $option !== '') ? $option : $legacy;
+            $fallbacks = array('aspect_ratio' => 2885, 'caption' => 2887);
+            $usedContractFallback = ($resolved === null || $resolved === '') && isset($fallbacks[$name]);
+            if ($usedContractFallback) $resolved = $fallbacks[$name];
             $list = $def[1] ? $this->bestOptionListForTerms($def[0]) : null;
             $listId = $list ? $this->firstValue($list, array('id', 'option_list_id', 'optionListId', 'key')) : null;
             $out[$name] = array(
@@ -349,7 +354,7 @@ class FieldCatalog {
                 'option_binding' => $option,
                 'legacy_binding' => $legacy,
                 'option_list_id' => $listId,
-                'source' => ($option !== null && $option !== '') ? 'option_list_binding' : 'semantic_workbench_binding'
+                'source' => $usedContractFallback ? 'project_18_contract_fallback' : (($option !== null && $option !== '') ? 'option_list_binding' : 'semantic_workbench_binding')
             );
         }
         return $out;
@@ -375,6 +380,8 @@ class FieldCatalog {
     }
 
     public function snapshot() {
+        $aspectRatio = $this->resolvedBindingFor(array('bildformat', 'bild format', 'seitenverhältnis', 'seitenverhaeltnis', 'aspect_ratio', 'aspect ratio'), true);
+        $caption = $this->resolvedBindingFor(array('bild beschriften', 'bildbeschriftung', 'beschriften', 'caption', 'image caption'), true);
         return array(
             'bindings' => array(
                 'height' => $this->resolvedBindingFor(array('körpergröße', 'koerpergroesse', 'körpergröße cm', 'größe', 'groesse', 'height_cm', 'body height', 'height', 'cm'), false),
@@ -383,7 +390,11 @@ class FieldCatalog {
                 'image_style' => $this->resolvedBindingFor(array('bildstil', 'fotostil', 'image_style', 'image style', 'photo style'), true),
                 'location' => $this->resolvedBindingFor(array('location-kategorie', 'location kategorie', 'location_category', 'ortskategorie', 'location'), true),
                 'region' => $this->resolvedBindingFor(array('region'), true),
-                'scene' => $this->resolvedBindingFor(array('bildszene', 'bild szene', 'scene', 'szene'), true)
+                'scene' => $this->resolvedBindingFor(array('bildszene', 'bild szene', 'scene', 'szene'), true),
+                // Nur wenn die Workbench keine semantische Zuordnung liefert, gelten
+                // die dokumentierten Projekt-18-IDs als vertraglicher Fallback.
+                'aspect_ratio' => ($aspectRatio !== null && $aspectRatio !== '') ? $aspectRatio : 2885,
+                'caption' => ($caption !== null && $caption !== '') ? $caption : 2887
             ),
             'options' => array(
                 'gender' => $this->optionsFor(array('geschlecht', 'gender', 'mann', 'frau')),
@@ -391,9 +402,19 @@ class FieldCatalog {
                 'image_style' => $this->optionsFor(array('bildstil', 'image style', 'fotostil')),
                 'location' => $this->optionsFor(array('location-kategorie', 'location kategorie', 'location', 'ortskategorie')),
                 'region' => $this->optionsFor(array('region')),
-                'scene' => $this->sceneOptions()
+                'scene' => $this->sceneOptions(),
+                'aspect_ratio' => $this->optionsOrFallback(array('bildformat', 'bild format', 'seitenverhältnis', 'seitenverhaeltnis', 'aspect_ratio', 'aspect ratio'), array('Querformat 16:9', 'Hochformat 9:16', 'Quadrat 1:1')),
+                'caption' => $this->optionsOrFallback(array('bild beschriften', 'bildbeschriftung', 'beschriften', 'caption', 'image caption'), array('an', 'aus'))
             )
         );
+    }
+
+    private function optionsOrFallback($terms, $fallbackValues) {
+        $options = $this->optionsFor($terms);
+        if (count($options)) return $options;
+        $out = array();
+        foreach ($fallbackValues as $value) $out[] = array('value' => $value, 'label' => $value);
+        return $out;
     }
 
     private function unwrap($response) {

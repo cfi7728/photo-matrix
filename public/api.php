@@ -301,13 +301,19 @@ try {
     }
 
     if ($action === 'save_profile') {
+        require_api($client);
         $height = isset($_POST['height']) ? trim($_POST['height']) : '';
         $gender = isset($_POST['gender']) ? trim($_POST['gender']) : '';
         $clothing = isset($_POST['clothing']) ? trim($_POST['clothing']) : '';
         $imageStyle = isset($_POST['image_style']) ? trim($_POST['image_style']) : '';
+        $aspectRatio = isset($_POST['aspect_ratio']) ? trim($_POST['aspect_ratio']) : '';
+        $caption = isset($_POST['caption']) ? trim($_POST['caption']) : '';
         if (!preg_match('/^\d{2,3}$/', $height) || intval($height) < 100 || intval($height) > 230) throw new Exception('Größe bitte in cm zwischen 100 und 230 eingeben.');
-        if ($gender === '' || $clothing === '' || $imageStyle === '') throw new Exception('Bitte alle Angaben auswählen.');
-        $flow->set('profile', array('height' => $height, 'gender' => $gender, 'clothing' => $clothing, 'image_style' => $imageStyle));
+        if ($gender === '' || $clothing === '' || $imageStyle === '' || $aspectRatio === '' || $caption === '') throw new Exception('Bitte alle Angaben auswählen.');
+        $catalog = load_scene_catalog($client, $flow);
+        validate_catalog_option($catalog->optionsFor(array('bildformat', 'bild format', 'seitenverhältnis', 'seitenverhaeltnis', 'aspect_ratio', 'aspect ratio')), $aspectRatio, array('Querformat 16:9', 'Hochformat 9:16', 'Quadrat 1:1'), 'Bildformat');
+        validate_catalog_option($catalog->optionsFor(array('bild beschriften', 'bildbeschriftung', 'beschriften', 'caption', 'image caption')), $caption, array('an', 'aus'), 'Bild beschriften');
+        $flow->set('profile', array('height' => $height, 'gender' => $gender, 'clothing' => $clothing, 'image_style' => $imageStyle, 'aspect_ratio' => $aspectRatio, 'caption' => $caption));
         json_response(array('ok' => true, 'state' => public_state($flow)), 200);
     }
 
@@ -345,18 +351,18 @@ try {
         $profile = $flow->get('profile', array());
         $location = $flow->get('location', array());
         $scenes = $flow->get('scenes', array());
-        if (count($profile) < 4 || !isset($location['value']) || count($scenes) !== 3) throw new Exception('Workflow-Angaben sind noch nicht vollständig.');
+        if (count($profile) < 6 || !isset($location['value']) || count($scenes) !== 3) throw new Exception('Workflow-Angaben sind noch nicht vollständig.');
 
         $draft = $flow->get('scene_draft', uuid_v4_compat());
         $catalog = load_scene_catalog($client, $flow);
         $snap = $catalog->snapshot();
         $bindings = $snap['bindings'];
         // Optional explizite Overrides, ansonsten ausschließlich Workbench-Werte.
-        foreach (array('height','gender','clothing','image_style','location','region','scene') as $bindingName) {
+        foreach (array('height','gender','clothing','image_style','location','region','scene','aspect_ratio','caption') as $bindingName) {
             $override = app_config('binding_' . $bindingName, '');
             if ($override !== '') $bindings[$bindingName] = $override;
         }
-        foreach (array('height','gender','clothing','image_style','location','scene') as $required) {
+        foreach (array('height','gender','clothing','image_style','location','scene','aspect_ratio','caption') as $required) {
             if (!isset($bindings[$required]) || $bindings[$required] === null || $bindings[$required] === '') {
                 throw new Exception('Projekt 18: Binding für ' . $required . ' konnte nicht aus der Workbench ermittelt werden. Diagnose: /api.php?action=diagnose_bindings&project=18');
             }
@@ -389,6 +395,8 @@ try {
         $baseValues[(string)$bindings['gender']] = $profile['gender'];
         $baseValues[(string)$bindings['clothing']] = $profile['clothing'];
         $baseValues[(string)$bindings['image_style']] = $profile['image_style'];
+        $baseValues[(string)$bindings['aspect_ratio']] = $profile['aspect_ratio'];
+        $baseValues[(string)$bindings['caption']] = $profile['caption'];
         $baseValues[(string)$bindings['location']] = $location['value'];
         if (isset($bindings['region']) && $bindings['region'] !== null && isset($location['region']) && $location['region'] !== '') {
             $baseValues[(string)$bindings['region']] = $location['region'];
@@ -1512,6 +1520,20 @@ function option_label($options, $value) {
         if (isset($option['value']) && (string)$option['value'] === (string)$value) return isset($option['label']) ? (string)$option['label'] : (string)$value;
     }
     return (string)$value;
+}
+
+function validate_catalog_option($options, $value, $contractFallback, $label) {
+    $allowed = array();
+    foreach ($options as $option) {
+        if (!is_array($option) || !isset($option['value'])) continue;
+        $allowed[] = (string)$option['value'];
+    }
+    // Der Projektvertrag dient nur dann als Werte-Fallback, wenn die aktuelle
+    // Workbench/Optionsliste für dieses Feld keine Werte bereitstellt.
+    if (!count($allowed)) $allowed = $contractFallback;
+    if (!in_array((string)$value, $allowed, true)) {
+        throw new Exception($label . ' enthält einen nicht zulässigen Wert.');
+    }
 }
 
 function serve_image($client, $flow) {
