@@ -364,7 +364,13 @@
     $('#open-photoset-history').onclick=function(){var attempts=photosetAttempts();if(!attempts.length)return;var idx=activeAttemptIndex();if(idx<0)idx=attempts.length-1;selectPhotoSetAttempt(attempts[idx].id)};
     $('#profile-form').addEventListener('submit',function(e){e.preventDefault();submitProfile(e.currentTarget)});
     $('#location').addEventListener('change',function(){toggleRegion(false);validateLocation(false);updateFormActions()});
-    $('#location-form').addEventListener('submit',function(e){e.preventDefault();submitLocation(e.currentTarget)});
+    var locationForm=$('#location-form'),locationNext=$('#location-next');
+    locationForm.addEventListener('submit',function(e){e.preventDefault();submitLocation(locationForm)});
+    // Submit buttons normally dispatch the form's submit event themselves. Bind
+    // the visible CTA directly as well so its activation remains reliable in
+    // embedded/older browsers that do not consistently perform that default
+    // action. preventDefault keeps one click from submitting the form twice.
+    locationNext.addEventListener('click',function(e){e.preventDefault();submitLocation(locationForm)});
     $('#scenes-form').addEventListener('submit',function(e){e.preventDefault();submitScenes()});
     $$('#profile-form input,#profile-form select,#location-form select').forEach(function(control){control.addEventListener('input',updateFormActions);control.addEventListener('blur',function(){if(control.id==='height')fieldValid('height');else updateFormActions()})});
     $('#restart-all').onclick=function(){api('reset_all',{method:'POST'}).then(function(){location.reload()}).catch(function(e){toast(e.message)})};$('#back-scenes').onclick=function(){gotoStep(5)};
