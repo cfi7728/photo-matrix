@@ -38,6 +38,11 @@ if (!headers_sent()) {
         <i></i><button type="button" data-step-nav="6"><b>06</b><span>Resultat</span></button>
     </nav>
 
+    <div id="bootstrap-status" class="bootstrap-status loading" role="status" aria-live="polite" aria-atomic="true">
+        <span id="bootstrap-status-message">Konfiguration wird geladen …</span>
+        <button id="bootstrap-retry" type="button" hidden>Konfiguration erneut laden</button>
+    </div>
+
     <div class="stage-container">
     <section class="stage active" data-step="1">
         <div class="eyebrow">INPUT NODE // 01</div>
@@ -114,25 +119,25 @@ if (!headers_sent()) {
             </label>
             <label class="field">
                 <span>Mann oder Frau</span>
-                <select name="gender" id="gender" required></select>
+                <select name="gender" id="gender" required disabled><option>Konfiguration wird geladen …</option></select>
             </label>
             <label class="field full">
                 <span>Stil der Kleidung</span>
-                <select name="clothing" id="clothing" required></select>
+                <select name="clothing" id="clothing" required disabled><option>Konfiguration wird geladen …</option></select>
             </label>
             <label class="field full">
                 <span>Bildstil</span>
-                <select name="image_style" id="image-style" required></select>
+                <select name="image_style" id="image-style" required disabled><option>Konfiguration wird geladen …</option></select>
             </label>
             <label class="field">
                 <span>Bildformat</span>
-                <select name="aspect_ratio" id="aspect-ratio" required></select>
+                <select name="aspect_ratio" id="aspect-ratio" required disabled><option>Konfiguration wird geladen …</option></select>
             </label>
             <label class="field">
                 <span>Bild beschriften</span>
-                <select name="caption" id="caption" required></select>
+                <select name="caption" id="caption" required disabled><option>Konfiguration wird geladen …</option></select>
             </label>
-            <div class="actions full right"><button class="btn primary" type="submit">Location wählen <span>→</span></button></div>
+            <div class="actions full right"><button class="btn primary" id="profile-next" type="submit" disabled>Location wählen <span>→</span></button></div>
         </form>
     </section>
 
@@ -143,14 +148,14 @@ if (!headers_sent()) {
         <form id="location-form" class="form-grid" autocomplete="off">
             <label class="field full">
                 <span>Location-Kategorie</span>
-                <select name="location" id="location" required></select>
+                <select name="location" id="location" required disabled><option>Konfiguration wird geladen …</option></select>
             </label>
             <label class="field full hidden" id="region-wrap">
                 <span>Region für Außenaufnahmen</span>
-                <select name="region" id="region"></select>
+                <select name="region" id="region" disabled><option>Konfiguration wird geladen …</option></select>
             </label>
             <div class="category-hint full" id="category-hint">Szenenfilter wird nach Auswahl automatisch aktiviert.</div>
-            <div class="actions full right"><button class="btn primary" type="submit">Szenen auswählen <span>→</span></button></div>
+            <div class="actions full right"><button class="btn primary" id="location-next" type="submit" disabled>Szenen auswählen <span>→</span></button></div>
         </form>
     </section>
 
