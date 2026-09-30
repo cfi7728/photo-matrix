@@ -34,7 +34,7 @@ $configPath = dirname(__DIR__) . '/app/config.php';
 $previous = getenv('BKI_PHOTOSET_PROVIDER');
 putenv('BKI_PHOTOSET_PROVIDER');
 $config = require $configPath;
-provider_assert_same('', $config['provider_photoset'], 'BKI_PHOTOSET_PROVIDER darf keinen geratenen Standardwert haben.');
+provider_assert_same('browsercloud', $config['provider_photoset'], 'BKI_PHOTOSET_PROVIDER muss standardmäßig browsercloud verwenden.');
 putenv('BKI_PHOTOSET_PROVIDER=browsercloud');
 $config = require $configPath;
 provider_assert_same('browsercloud', $config['provider_photoset'], 'BKI_PHOTOSET_PROVIDER wird nicht als Präferenz übernommen.');

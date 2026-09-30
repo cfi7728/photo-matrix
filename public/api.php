@@ -340,6 +340,7 @@ try {
     }
 
     if ($action === 'save_scenes') {
+        require_api($client);
         $scenes = isset($_POST['scenes']) ? $_POST['scenes'] : array();
         if (!is_array($scenes)) $scenes = array($scenes);
         $clean = array();
@@ -348,8 +349,32 @@ try {
             if ($scene !== '' && !in_array($scene, $clean, true)) $clean[] = $scene;
         }
         if (count($clean) !== 3) throw new Exception('Bitte genau 3 Szenen auswählen.');
+        $catalog = load_scene_catalog($client, $flow);
+        $location = $flow->get('location', array());
+        $locationText = (isset($location['label']) ? $location['label'] : '') . ' ' . (isset($location['value']) ? $location['value'] : '');
+        $currentScenes = $catalog->filterScenesByLocation($catalog->sceneOptions(), $locationText);
+        $allowedScenes = array_map('strval', array_column($currentScenes, 'value'));
+        foreach ($clean as $scene) {
+            if (!in_array((string)$scene, $allowedScenes, true)) {
+                throw new Exception('Die Szene „' . $scene . '“ ist im aktuellen Projektstand nicht mehr vorhanden. Bitte neu auswählen.');
+            }
+        }
         $flow->set('scenes', $clean);
         json_response(array('ok' => true, 'state' => public_state($flow)), 200);
+    }
+
+    if ($action === 'refresh_scenes') {
+        require_api($client);
+        $catalog = load_scene_catalog($client, $flow);
+        $location = $flow->get('location', array());
+        $locationText = (isset($location['label']) ? $location['label'] : '') . ' ' . (isset($location['value']) ? $location['value'] : '');
+        $scenes = $catalog->filterScenesByLocation($catalog->sceneOptions(), $locationText);
+        $allowed = array_map('strval', array_column($scenes, 'value'));
+        $selected = array_values(array_filter($flow->get('scenes', array()), function ($scene) use ($allowed) {
+            return in_array((string)$scene, $allowed, true);
+        }));
+        if ($selected !== $flow->get('scenes', array())) $flow->set('scenes', $selected);
+        json_response(array('ok' => true, 'scenes' => $scenes, 'state' => public_state($flow)), 200);
     }
 
     if ($action === 'start_scenes') {
@@ -361,20 +386,6 @@ try {
         if (count($profile) < 6 || !isset($location['value']) || count($scenes) !== 3) throw new Exception('Workflow-Angaben sind noch nicht vollständig.');
 
         $draft = $flow->get('scene_draft', uuid_v4_compat());
-        $catalog = load_scene_catalog($client, $flow);
-        $snap = $catalog->snapshot();
-        $bindings = $snap['bindings'];
-        // Optional explizite Overrides, ansonsten ausschließlich Workbench-Werte.
-        foreach (array('height','gender','clothing','image_style','location','region','scene','aspect_ratio','caption') as $bindingName) {
-            $override = app_config('binding_' . $bindingName, '');
-            if ($override !== '') $bindings[$bindingName] = $override;
-        }
-        foreach (array('height','gender','clothing','image_style','location','scene','aspect_ratio','caption') as $required) {
-            if (!isset($bindings[$required]) || $bindings[$required] === null || $bindings[$required] === '') {
-                throw new Exception('Projekt 18: Binding für ' . $required . ' konnte nicht aus der Workbench ermittelt werden. Diagnose: /api.php?action=diagnose_bindings&project=18');
-            }
-        }
-
         $resourceInfo = load_resource_catalog($client, app_config('project_scene', 18), $draft);
         $resourceCatalog = $resourceInfo['catalog'];
         $photosetFiles = array_values(array_filter($flow->get('photoset_files', array()), 'is_file'));
@@ -396,6 +407,20 @@ try {
         }
         $currentWorkbench = $client->workbench(app_config('project_scene', 18), $draft);
         $sceneResourceUploadPlan = public_upload_plan($sceneUploadFields);
+
+        // Unmittelbar vor Promptprüfung und Run alle Felder erneut über die API
+        // einlesen. So gelangen keine Aliase aus einem älteren Projektstand in
+        // values, wenn Projekt 18 zwischen Anzeige und Generierung geändert wurde.
+        $catalog = new FieldCatalog(
+            $currentWorkbench,
+            $client->optionLists(app_config('project_scene', 18)),
+            $client->dynamicFields(app_config('project_scene', 18))
+        );
+        $bindings = $catalog->snapshot()['bindings'];
+        foreach (array('height','gender','clothing','image_style','location','region','scene','aspect_ratio','caption') as $bindingName) {
+            $override = app_config('binding_' . $bindingName, '');
+            if ($override !== '') $bindings[$bindingName] = $override;
+        }
 
         $baseValues = array();
         $baseValues[(string)$bindings['height']] = $profile['height'];

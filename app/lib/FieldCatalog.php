@@ -450,7 +450,10 @@ class FieldCatalog {
         );
         $contractBindings = array('height' => 2879, 'gender' => 2880, 'clothing' => 2881, 'image_style' => 2882, 'location' => 2883, 'region' => 2884, 'aspect_ratio' => 2885, 'scene' => 2886, 'caption' => 2887);
         foreach ($contractBindings as $name => $binding) {
-            if ($resolvedBindings[$name] === null || $resolvedBindings[$name] === '') $resolvedBindings[$name] = $binding;
+            // /prompt/resolve akzeptiert hier die numerische Binding-ID. UUIDs
+            // aus gleichnamigen Masterprompt-Abschnitten sind API-Aliase und
+            // können nach einer Projektänderung mehrdeutig bzw. ungültig sein.
+            if ($this->numericFieldId($resolvedBindings[$name]) === null) $resolvedBindings[$name] = $binding;
         }
         return array(
             // Die Workbench hat Vorrang; fehlende Zuordnungen werden aus dem

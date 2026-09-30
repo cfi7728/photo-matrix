@@ -1,5 +1,8 @@
 <?php
 $photosetProvider = trim((string)getenv('BKI_PHOTOSET_PROVIDER'));
+if ($photosetProvider === '') {
+    $photosetProvider = 'browsercloud';
+}
 $sceneProvider = trim((string)getenv('BKI_SCENE_PROVIDER'));
 if ($sceneProvider === '') {
     $sceneProvider = 'vehabi';
