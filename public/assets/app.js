@@ -214,21 +214,33 @@
   }
   function shiftGallery(delta){var items=galleryItems();if(!items.length)return;App.galleryIndex=Math.max(0,Math.min(items.length-1,App.galleryIndex+delta));updateGallery()}
 
-  function configureUi(data){
-    App.ui=data.ui;App.state=data.state;var o=data.ui.options||{};
+  function catalogControlsEnabled(enabled){
+    ['#gender','#clothing','#image-style','#aspect-ratio','#caption','#location','#region'].forEach(function(selector){var el=$(selector);if(el)el.disabled=!enabled});
+    $('#profile-next').disabled=!enabled;$('#location-next').disabled=!enabled;if(!enabled)$('#start-scenes').disabled=true;
+  }
+  function validCatalogOptions(options){return ['gender','clothing','image_style','aspect_ratio','caption','location','region','scene'].every(function(key){return Array.isArray(options[key])&&options[key].length>0&&options[key].every(function(option){return option&&option.value!==undefined&&option.value!==null&&String(option.value)!==''&&option.label!==undefined})})}
+  function populateUiCatalog(ui){
+    var o=ui&&ui.options||{};if(!validCatalogOptions(o))throw new Error('Die geladene Konfiguration enthält keine vollständigen Auswahloptionen.');App.ui=ui;
     var plan=uploadPlan(),types=$('#upload-types');if(types&&plan.length){types.innerHTML='';plan.forEach(function(field){var li=document.createElement('li');li.textContent=field.label+' · Feld '+field.field_id;types.appendChild(li)});$('#upload-requirement').textContent=plan.length+' Pflichtaufnahmen hochladen. Jede Aufnahme wird eindeutig ihrem Workbench-Feld zugeordnet.';$('#upload-zone-hint').textContent='oder klicken · JPEG / PNG / WEBP · genau '+plan.length+' Dateien'}
-    optionFill($('#gender'),o.gender,'Bitte wählen',[{value:'Mann',label:'Mann'},{value:'Frau',label:'Frau'}]);
+    optionFill($('#gender'),o.gender,'Bitte wählen');
     optionFill($('#clothing'),o.clothing,'Kleidungsstil aus Projekt 18 wählen');
     optionFill($('#image-style'),o.image_style,'Bildstil aus Projekt 18 wählen');
     optionFill($('#aspect-ratio'),o.aspect_ratio,'Bildformat aus Projekt 18 wählen');
     optionFill($('#caption'),o.caption,'Beschriftung aus Projekt 18 wählen');
     optionFill($('#location'),o.location,'Location-Kategorie aus Projekt 18 wählen');
     optionFill($('#region'),o.region,'Region aus Projekt 18 wählen');
-    renderScenes(o.scene||[]);renderUploads();renderPhotoSet(App.state.photoset_images);renderPhotoSetHistory();renderFinal(App.state.scene_results);if(!(App.state.scene_results&&App.state.scene_results.length))closeGallery();
+    renderScenes(o.scene);catalogControlsEnabled(true);
+  }
+  function applyWorkflowState(state){
+    App.state=state||{};renderUploads();renderPhotoSet(App.state.photoset_images);renderPhotoSetHistory();renderFinal(App.state.scene_results);if(!(App.state.scene_results&&App.state.scene_results.length))closeGallery();
     if(App.state.profile){if(App.state.profile.height)$('#height').value=App.state.profile.height;setValue($('#gender'),App.state.profile.gender);setValue($('#clothing'),App.state.profile.clothing);setValue($('#image-style'),App.state.profile.image_style);setValue($('#aspect-ratio'),App.state.profile.aspect_ratio);setValue($('#caption'),App.state.profile.caption)}
-    if(App.state.location&&App.state.location.value){setValue($('#location'),App.state.location.value);setValue($('#region'),App.state.location.region);toggleRegion()}
+    if(App.state.location&&App.state.location.value){setValue($('#location'),App.state.location.value);setValue($('#region'),App.state.location.region)}toggleRegion();
+    if(App.state.scenes&&App.state.scenes.length){$$('#scene-options input').forEach(function(input){input.checked=App.state.scenes.some(function(value){return String(value)===String(input.value)})});sceneCount()}
     if(App.state.scene_results&&App.state.scene_results.length===3)gotoStep(6);else if(App.state.photoset_approved&&App.state.scenes&&App.state.scenes.length===3)gotoStep(5);else if(App.state.photoset_approved&&App.state.location&&App.state.location.value)gotoStep(5);else if(App.state.photoset_approved&&App.state.profile&&App.state.profile.height)gotoStep(4);else if(App.state.photoset_approved)gotoStep(3);else if(App.state.photoset_images&&App.state.photoset_images.length)gotoStep(2);else gotoStep(1);
   }
+  function configureUi(data){populateUiCatalog(data.ui);applyWorkflowState(data.state)}
+  function setBootstrapStatus(mode,message){var box=$('#bootstrap-status');box.className='bootstrap-status '+mode;$('#bootstrap-status-message').textContent=message;$('#bootstrap-retry').hidden=mode!=='error'}
+  function loadBootstrap(){catalogControlsEnabled(false);setBootstrapStatus('loading','Konfiguration wird geladen …');$('#system-label').textContent='CONFIG LOADING';return api('bootstrap').then(function(data){configureUi(data);setBootstrapStatus('ready','Konfiguration geladen');$('#system-label').textContent='SYSTEM READY';return data}).catch(function(error){catalogControlsEnabled(false);setBootstrapStatus('error','Konfiguration konnte nicht geladen werden: '+error.message);$('#system-label').textContent='CONFIG REQUIRED';throw error})}
   function setValue(el,val){if(val===undefined||val===null)return;Array.prototype.some.call(el.options,function(o){if(String(o.value)===String(val)){el.value=o.value;return true}return false})}
 
   function toggleRegion(){var txt=findLabel($('#location'))+' '+$('#location').value;var outside=isOutside(txt);$('#region-wrap').classList.toggle('hidden',!outside);$('#region').required=outside;$('#category-hint').textContent=outside?'Gruppe A aktiv · für Außenaufnahmen ist zusätzlich eine Region erforderlich.':'Szenengruppe wird anhand dieser Kategorie gefiltert.';}
@@ -294,6 +306,7 @@
   }
 
   function bind(){
+    $('#bootstrap-retry').onclick=function(){loadBootstrap().catch(function(){})};
     var zone=$('#drop-zone'),input=$('#photo-input'),uploadGrid=$('#upload-grid');uploadGrid.addEventListener('click',handleUploadAction);zone.onclick=function(){App.replaceIndex=null;input.multiple=true;input.click()};['dragenter','dragover'].forEach(function(ev){zone.addEventListener(ev,function(e){e.preventDefault();zone.classList.add('drag')})});['dragleave','drop'].forEach(function(ev){zone.addEventListener(ev,function(e){e.preventDefault();zone.classList.remove('drag')})});zone.addEventListener('drop',function(e){uploadFiles(e.dataTransfer.files,null)});input.addEventListener('change',function(){uploadFiles(input.files,App.replaceIndex);input.value='';input.multiple=true;App.replaceIndex=null});
     $('#generate-photoset').onclick=function(){var retry=function(){$('#generate-photoset').click()};startWait('photoset');api('start_photoset',{method:'POST'}).then(function(){runAccepted();pollPhotoSet()}).catch(function(e){setWaitError('Request failed',retry);toast(e.message,'ERNEUT VERSUCHEN',retry)})};
     $('#open-saved-photosets').onclick=function(){var grid=$('#photoset-library-grid');if(grid)grid.innerHTML='<div class="photoset-library-loading">Storage wird gelesen …</div>';openSavedPhotoSets();refreshSavedPhotoSets(true)};$('#photoset-library-backdrop').onclick=closeSavedPhotoSets;$('#photoset-library-x').onclick=closeSavedPhotoSets;
@@ -315,5 +328,5 @@
   function matrix(canvas,opacityMode){
     var ctx=canvas.getContext('2d'),font=opacityMode?14:12,drops=[],cols=0,raf=null,chars='01ABCDEFGHIJKLMNOPQRSTUVWXYZアイウエオカキクケコサシスセソ',reduce=window.matchMedia('(prefers-reduced-motion: reduce)');function resize(){var dpr=Math.min(window.devicePixelRatio||1,2);canvas.width=innerWidth*dpr;canvas.height=innerHeight*dpr;canvas.style.width=innerWidth+'px';canvas.style.height=innerHeight+'px';ctx.setTransform(dpr,0,0,dpr,0,0);cols=Math.ceil(innerWidth/font);drops=[];for(var i=0;i<cols;i++)drops[i]=Math.random()*-80}function allowed(){return !document.hidden&&!reduce.matches&&(!opacityMode||$('#wait-layer').classList.contains('open'))}function draw(){raf=null;if(!allowed())return;ctx.fillStyle=opacityMode?'rgba(0,5,2,.10)':'rgba(2,7,4,.12)';ctx.fillRect(0,0,innerWidth,innerHeight);ctx.font=font+'px ui-monospace, monospace';ctx.fillStyle=opacityMode?'rgba(85,255,136,.6)':'rgba(85,255,136,.45)';for(var i=0;i<drops.length;i++){var ch=chars.charAt(Math.floor(Math.random()*chars.length));ctx.fillText(ch,i*font,drops[i]*font);if(drops[i]*font>innerHeight&&Math.random()>.975)drops[i]=0;drops[i]+=.42+Math.random()*.5}raf=requestAnimationFrame(draw)}function resume(){if(allowed()===true&&raf===null)raf=requestAnimationFrame(draw)}resize();window.addEventListener('resize',resize);document.addEventListener('visibilitychange',resume);reduce.addEventListener('change',resume);if(opacityMode)new MutationObserver(resume).observe($('#wait-layer'),{attributes:true,attributeFilter:['class']});resume()}
 
-  document.addEventListener('DOMContentLoaded',function(){document.addEventListener('keydown',function(){App.lastInputWasKeyboard=true},true);document.addEventListener('pointerdown',function(){App.lastInputWasKeyboard=false},true);matrix($('#matrix-bg'),false);matrix($('#wait-matrix'),true);bind();refreshSavedPhotoSets(false);api('bootstrap').then(configureUi).catch(function(e){$('#system-label').textContent='CONFIG REQUIRED';toast(e.message);api('status').then(function(r){App.state=r.state;renderUploads();renderPhotoSetHistory();gotoStep(1)}).catch(function(){})})});
+  document.addEventListener('DOMContentLoaded',function(){document.addEventListener('keydown',function(){App.lastInputWasKeyboard=true},true);document.addEventListener('pointerdown',function(){App.lastInputWasKeyboard=false},true);matrix($('#matrix-bg'),false);matrix($('#wait-matrix'),true);bind();refreshSavedPhotoSets(false);loadBootstrap().catch(function(){})});
 })();
