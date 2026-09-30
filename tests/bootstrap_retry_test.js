@@ -32,9 +32,13 @@ assert.match(source, /bootstrap-retry'\)\.onclick=function\(\)\{loadBootstrap\(\
 // reapplies every persisted workflow concern before revealing usable controls.
 assert.match(loadBootstrap, /api\('bootstrap'\)/);
 assert.match(loadBootstrap, /configureUi\(data\)/);
-assert.match(configureUi, /populateUiCatalog\(data\.ui\);applyWorkflowState\(data\.state\)/);
+assert.match(configureUi, /populateUiCatalog\(data\.ui\)/);
 assert.match(populateUiCatalog, /validCatalogOptions/);
 assert.match(populateUiCatalog, /catalogControlsEnabled\(true\)/);
+assert.match(configureUi, /try\{applyWorkflowState\(data\.state\);return true\}catch\(error\)/);
+assert.match(configureUi, /updateStepper\(\);consoleErrorDetails\('restore_workflow_state'/);
+assert.match(loadBootstrap, /if\(stateRestored\)/);
+assert.match(loadBootstrap, /else\{catalogControlsEnabled\(true\);setBootstrapStatus\('warning'/);
 assert.match(applyWorkflowState, /App\.state=state/);
 assert.match(applyWorkflowState, /setValue\(\$\('#location'\)/);
 assert.match(applyWorkflowState, /setValue\(\$\('#region'\)/);
@@ -42,4 +46,4 @@ assert.match(applyWorkflowState, /toggleRegion\(\)/);
 assert.match(applyWorkflowState, /App\.state\.scenes/);
 assert.match(applyWorkflowState, /gotoStep\(/);
 
-console.log('OK: fehlgeschlagener Bootstrap bleibt gesperrt und ein erfolgreicher Retry stellt Katalog und Workflow wieder her.');
+console.log('OK: Bootstrap-Fehler sperren den Katalog; ein Fehler bei der Statuswiederherstellung lässt die geladenen Selects bedienbar.');
