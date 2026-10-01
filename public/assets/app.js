@@ -88,7 +88,7 @@
   function gotoStep(n){
     n=parseInt(n,10);var target=$('.stage[data-step="'+n+'"]'),current=$('.stage.active');
     if(!target){App.isTransitioning=false;return}
-    function focusHeading(){var heading=target.querySelector('h1');if(!heading)return;heading.setAttribute('tabindex','-1');heading.classList.toggle('pointer-focus',!App.lastInputWasKeyboard);heading.focus({preventScroll:true});heading.removeAttribute('tabindex');heading.addEventListener('blur',function(){heading.classList.remove('pointer-focus')},{once:true})}
+    function focusHeading(){var heading=target.querySelector('h1');if(!heading||typeof document!=='undefined'&&target.contains(document.activeElement))return;heading.setAttribute('tabindex','-1');heading.classList.toggle('pointer-focus',!App.lastInputWasKeyboard);heading.focus({preventScroll:true});heading.removeAttribute('tabindex');heading.addEventListener('blur',function(){heading.classList.remove('pointer-focus')},{once:true})}
     function showImmediately(){$$('.stage').forEach(function(el){el.classList.remove('active','stage-exiting','stage-exit-active','stage-entering','stage-entered','to-next','to-prev')});target.classList.add('active');App.step=n;updateStepper();App.isTransitioning=false;window.scrollTo({top:0,behavior:'auto'});if(App.hasBootstrapped)focusHeading();App.hasBootstrapped=true}
     if(n===App.step){updateStepper();App.hasBootstrapped=true;return}
     if(App.isTransitioning)return;
@@ -363,7 +363,9 @@
     $('#photoset-prev').onclick=function(){selectPhotoSetOffset(-1)};
     $('#photoset-next').onclick=function(){selectPhotoSetOffset(1)};
     $('#open-photoset-history').onclick=function(){var attempts=photosetAttempts();if(!attempts.length)return;var idx=activeAttemptIndex();if(idx<0)idx=attempts.length-1;selectPhotoSetAttempt(attempts[idx].id)};
-    $('#profile-form').addEventListener('submit',function(e){e.preventDefault();submitProfile(e.currentTarget)});
+    var profileForm=$('#profile-form'),profileNext=$('#profile-next');
+    profileForm.addEventListener('submit',function(e){e.preventDefault();submitProfile(profileForm)});
+    profileNext.addEventListener('click',function(e){e.preventDefault();submitProfile(profileForm)});
     $('#location').addEventListener('change',function(){toggleRegion(false);validateLocation(false);updateFormActions()});
     var locationForm=$('#location-form'),locationNext=$('#location-next');
     locationForm.addEventListener('submit',function(e){e.preventDefault();submitLocation(locationForm)});
